@@ -5,9 +5,9 @@ project_id = "converter-express"
 verify_jwt = false
 
 [auth]
-site_url = "https://converter-express-portal.vercel.app"
-additional_redirect_urls = ["https://converter-express-portal.vercel.app/", "https://converter-express-portal-s1yb.vercel.app/", "https://converter-express-portal.vercel.app/converter-express_1.html", "https://converter-express-portal-s1yb.vercel.app/converter-express_1.html"]
-minimum_password_length = 15
+site_url = "https://converter-express-portal-converterexpress1-9251.vercel.app/"
+additional_redirect_urls = ["https://converter-express-portal.vercel.app/", "https://converter-express-portal-s1yb.vercel.app/", "https://converter-express-portal.vercel.app/converter-express_1.html", "https://converter-express-portal-s1yb.vercel.app/converter-express_1.html", "https://converter-express-portal-converterexpress1-9251.vercel.app/", "https://converter-express-portal-converterexpress1-9251.vercel.app/**", "https://converter-*-express-portal-converterexpress1-9251.vercel.app", "https://converter-*-express-portal-converterexpress1-9251.vercel.app/**"]
+minimum_password_length = 10
 
 [auth.email]
 enable_confirmations = true

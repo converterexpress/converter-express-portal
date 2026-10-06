@@ -19,7 +19,7 @@
 4. Apply `supabase/migrations/202610050001_private_workspace.sql` with the project's SQL editor or `supabase db push` from this folder after linking the intended project.
 5. Import the clean catalog from the existing local SQLite database using `scripts/prepare_import.py`. It validates data, refuses imports with unmapped account identities, writes a private SQL file outside this web folder, and never overwrites an existing target workspace. Review counts before running the generated SQL through the trusted SQL editor.
 6. Deploy `crm-api` with the Supabase CLI. Set `APP_ORIGINS` in Edge Function secrets to the exact HTTPS frontend origin (and `http://127.0.0.1:8772` only while testing locally). Built-in server-side Supabase credentials are read only by the function. `verify_jwt=false` allows the public catalog/fitment route; all private actions explicitly verify Auth.getUser, getClaims, and a live auth.sessions record. Do not remove those checks.
-7. Configure Auth: email verification required; minimum password length 15; site URL and exact redirect URL allowlist; custom transactional SMTP; appropriate Auth rate limits and CAPTCHA; enable TOTP MFA. Test email delivery before inviting customers. Do not add wildcard redirect URLs.
+7. Configure Auth: email verification required; minimum password length 10; site URL and exact redirect URL allowlist; custom transactional SMTP; appropriate Auth rate limits and CAPTCHA; enable TOTP MFA. Test email delivery before inviting customers. Do not add wildcard redirect URLs.
 8. Create and verify the owner's Auth user, then grant staff access once through the SQL editor with their exact UUID:
    ```sql
    insert into ce_private.staff(user_id) values ('OWNER_AUTH_USER_UUID');
