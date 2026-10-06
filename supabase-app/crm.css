@@ -87,3 +87,11 @@
  .home-premium section.hero.hero-shop::before{height:210px;background:linear-gradient(180deg,#080b0f 0%,rgba(8,11,15,.4) 22%,transparent 62%);}
 }
 @media(max-width:360px){.home-premium section.hero.hero-shop .hero-inner{padding-left:18px;padding-right:18px;}.home-premium section.hero.hero-shop .hero-actions .btn{font-size:10px;}.home-premium section.hero.hero-shop .hero-first-order{padding:12px;gap:10px;}}
+
+/* Blend the mobile photo into the hero instead of exposing its top edge. */
+@media(max-width:640px){
+ .home-premium section.hero.hero-shop .hero-product-photo{
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,#000 34%);
+  mask-image:linear-gradient(to bottom,transparent 0%,#000 34%);
+ }
+}
