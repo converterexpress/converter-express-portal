@@ -1,6 +1,6 @@
 # Converter Express — Supabase staging build
 
-**Prepared locally; not connected or deployed.** The original preview on port 8766 is unchanged. This folder replaces the old preview backend only after a real project has been provisioned and its acceptance checks pass.
+**Connected backend as of October 6, 2026.** Project `hjxhaxlthpqqktregwvu` has the private schema, clean 1,308-part catalog and `crm-api` Edge Function deployed. The original local preview on port 8766 is unchanged. Public bootstrap, unauthenticated command rejection, direct workspace RPC denial and origin restrictions have been verified on the hosted backend. Owner registration/MFA, customer email delivery and the remaining hosted acceptance checks below are still pending.
 
 ## What is included
 
