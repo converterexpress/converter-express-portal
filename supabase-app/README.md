@@ -69,3 +69,11 @@ The existing CRM is preserved using one private, revisioned JSON workspace. API 
 Custom SMTP is configured in the hosted Supabase project. The confirmation and recovery templates in `supabase/templates/` were activated on October 6, 2026. Both link to the Converter Express `/#/verify` page, which removes the token from the address bar and verifies it only after the user clicks the confirmation button. Auth site URL is `https://www.converterexpress.co/`.
 
 SMTP credentials remain in the hosted provider settings; they are not stored in the repository. Successful template configuration does not establish inbox delivery. Validate delivery separately through an explicitly authorized test email.
+
+### Email coverage
+
+Run `node scripts/build-email-templates.cjs` to generate the shared email design. It covers signup confirmation, password recovery, invitations, magic links, email changes, and reauthentication codes. Password-change and email-change security notices are enabled with the same design. Configuring a template does not enable an otherwise unused sign-in method.
+
+Order confirmations in the CRM are still explicitly labeled previews. Supabase Auth SMTP handles authentication emails only; it does not connect business-order, invoice, approval, or delivery-status emails. Those require a separate transactional sender and event wiring before customer delivery can be claimed. The order preview uses matching colors and directs recipients to the support page without assuming a working reply inbox or phone number.
+
+Checks: `node tests/email-templates.cjs`, the branded Auth browser test, and browser layout checks at 720px/320px. These are not Outlook/Gmail inbox-rendering or deliverability certification.
