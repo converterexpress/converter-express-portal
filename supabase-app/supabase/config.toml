@@ -1,0 +1,5 @@
+project_id = "converter-express"
+# Public catalog/fitment and authenticated commands share this endpoint.
+# Every authenticated operation is checked with Auth.getUser + getClaims + live session lookup.
+[functions.crm-api]
+verify_jwt = false
