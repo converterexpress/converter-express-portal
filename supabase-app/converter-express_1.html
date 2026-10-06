@@ -874,7 +874,7 @@ article.part-card .part-body{padding:20px;gap:0;flex:1;}
   <div class="footer-navigation">
    <nav class="footer-column" aria-label="Footer catalog"><span class="head">Find your parts</span><a href="#/catalog">Browse converters</a><a href="#/find-your-part">Find by vehicle</a><a href="#/register" id="footerOpenAccount">Open a shop account ↗</a></nav>
    <nav class="footer-column" id="footerAccountCol" aria-label="Footer account"><span class="head">Your account</span><a href="#/login">Sign in</a></nav>
-   <nav class="footer-column" aria-label="Footer support"><span class="head">Help & information</span><a href="#/contact">Contact us</a><a href="#/returns">Returns & warranty</a><a href="#/about">About Converter Express</a></nav>
+   <nav class="footer-column" aria-label="Footer support"><span class="head">Help & information</span><a href="#/contact">Contact us</a><a href="#/returns">Returns & warranty</a><a href="/about-converter-express">About Converter Express</a><a href="/catalytic-converters">Converters for shops</a><a href="/shop-delivery">Shop delivery areas</a></nav>
    <div class="footer-column footer-get-in-touch"><span class="head">Let’s talk parts</span><p>Questions about a part or an order? Get in touch.</p><div id="footerContact"></div><span class="footer-warranty">5-year / 50,000-mile warranty</span></div>
   </div>
   <div class="footer-bottom"><span>© 2026 Converter Express</span><nav aria-label="Legal and staff links"><a href="#/terms">Terms</a><a href="#/privacy">Privacy</a><a href="#/admin/login">Staff sign-in</a></nav></div>
@@ -968,7 +968,7 @@ const state = {
   },
   discountCodes: [
     // Owner-approved first-order promotion
-    { code:'WELCOME100', type:'AMOUNT', value:100, active:true },
+    { code:'WELCOME50', type:'AMOUNT', value:50, active:true },
   ],
   accounts: [],
   cart: [],             // [{partId(partNumber), quantity}]
@@ -997,7 +997,7 @@ function discountCentsFor(discount, subtotalCents){
 }
 function computeOrderTotals({subtotalCents, shippingCents=0, discountCode=null, shopEmail=state.user?.email}){
   let discount = discountCode ? findDiscountCode(discountCode) : null;
-  if(discount?.code.toUpperCase()==='WELCOME100'&&!firstOrderEligible(shopEmail))discount=null;
+  if(discount?.code.toUpperCase()==='WELCOME50'&&!firstOrderEligible(shopEmail))discount=null;
   const discountCents = discountCentsFor(discount, subtotalCents);
   const taxableBase = Math.max(0, subtotalCents - discountCents) + shippingCents;
   const taxCents = Math.round(taxableBase * (state.storeSettings.taxRatePercent/100));
@@ -1456,7 +1456,7 @@ function renderHome(){
       <div class="stat"><div class="num">Wholesale Pricing</div><div class="lbl">Built for repair shops</div></div>
       <div class="stat"><div class="num">Same-Day Delivery</div><div class="lbl">Straight to your shop</div></div>
       <div class="stat"><div class="num">5 Years / 50K Miles</div><div class="lbl">Warranty protection</div></div>
-      <div class="stat"><div class="num">$100 Off</div><div class="lbl">Your first order</div></div>
+      <div class="stat"><div class="num">$50 Off</div><div class="lbl">Your first order</div></div>
     </div>
 
     <div class="page home-content">
@@ -1514,8 +1514,8 @@ function renderHome(){
       ${state.user ? '' : `
       <section class="cta-band">
         <div>
-          <span class="home-section-kicker">YOUR FIRST ORDER STARTS HERE</span><h2>Get to work.<br>Start with $100 off.</h2>
-          <p>Wholesale pricing. Free same-day delivery. Apply for a shop account and get $100 off your first order after approval.</p>
+          <span class="home-section-kicker">YOUR FIRST ORDER STARTS HERE</span><h2>Get to work.<br>Start with $50 off.</h2>
+          <p>Wholesale pricing. Free same-day delivery. Apply for a shop account and get $50 off your first order after approval.</p>
         </div>
         <a href="#/register" class="btn btn-primary">Apply for a shop account <span aria-hidden="true">↗</span></a>
       </section>`}
@@ -2242,7 +2242,7 @@ function renderCheckout(){
   const u = state.user;
   checkoutMethod = 'SHIP';
   checkoutFulfillment = null;
-  checkoutDiscountCode = firstOrderEligible() ? 'WELCOME100' : null;
+  checkoutDiscountCode = firstOrderEligible() ? 'WELCOME50' : null;
 
   app.innerHTML = `
     <div class="page-mid">
@@ -2293,7 +2293,7 @@ function renderCheckout(){
           </div>
         </div>
         <div class="card" style="padding:22px;margin-top:16px;">
-          <p class="muted" style="margin-bottom:12px">${firstOrderEligible()?'Your first-order $100 discount is applied automatically. Offers do not stack.':'First-order offer already used.'}</p><label class="field-label">Discount code (optional)</label>
+          <p class="muted" style="margin-bottom:12px">${firstOrderEligible()?'Your first-order $50 discount is applied automatically. Offers do not stack.':'First-order offer already used.'}</p><label class="field-label">Discount code (optional)</label>
           <div style="display:flex;gap:8px;">
             <input class="field" id="promoInput" placeholder="Discount code" style="text-transform:uppercase;" />
             <button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap;" onclick="applyDiscountCode()">Apply</button>
@@ -2366,7 +2366,7 @@ function checkoutShippingCents(){
   return (checkoutFulfillment && checkoutFulfillment.method==='SHIP') ? state.storeSettings.shippingFlatCents : 0;
 }
 function renderCheckoutTotals(){
-  if(!checkoutDiscountCode&&firstOrderEligible())checkoutDiscountCode='WELCOME100';
+  if(!checkoutDiscountCode&&firstOrderEligible())checkoutDiscountCode='WELCOME50';
   const el = document.getElementById('totalsCard');
   if(!el) return;
   const totals = computeOrderTotals({
@@ -2389,12 +2389,12 @@ function applyDiscountCode(){
   const msg = document.getElementById('promoMsg');
   const raw = (input.value||'').trim();
   if(!raw){
-    checkoutDiscountCode = firstOrderEligible()?'WELCOME100':null;
+    checkoutDiscountCode = firstOrderEligible()?'WELCOME50':null;
     msg.hidden = true;
     renderCheckoutTotals();
     return;
   }
-  const found = raw.toUpperCase()==='WELCOME100'&&!firstOrderEligible()?null:findDiscountCode(raw);
+  const found = raw.toUpperCase()==='WELCOME50'&&!firstOrderEligible()?null:findDiscountCode(raw);
   if(found){
     checkoutDiscountCode = raw;
     msg.hidden = false;
@@ -2601,7 +2601,7 @@ function shopOrderRow(o){return `<article class="shop-order simple-order"><div><
 function renderShopDashboard(){
  if(!shopAllowed())return;shopOrderFilter='all';
  app.innerHTML=`<div class="page shop-dashboard simple-shop shop-shell">${shopHeaderHtml('orders')}
- ${firstOrderEligible()?'<div class="shop-offer"><strong>$100 off your first order.</strong><span>Applied automatically at checkout.</span></div>':''}
+ ${firstOrderEligible()?'<div class="shop-offer"><strong>$50 off your first order.</strong><span>Applied automatically at checkout.</span></div>':''}
  <div class="shop-workspace"><section class="shop-orders-section"><div class="section-head"><h2>Your orders</h2><span class="muted">${shopOrders().length} total</span></div><div class="shop-order-tools"><div class="shop-order-filters" aria-label="Filter orders">${[['all','All'],['progress','In progress'],['delivered','Delivered'],['cancelled','Cancelled']].map(([id,label])=>`<button type="button" data-order-filter="${id}" aria-pressed="${id==='all'}" onclick="setShopOrderFilter('${id}')">${label}</button>`).join('')}</div><label class="shop-search-label"><span class="sr-only">Search orders</span><input class="field" id="orderSearch" type="search" placeholder="Search order, PO, or part number" oninput="filterShopOrders(this.value)"/></label></div><div id="shopHistory" aria-live="polite"></div></section>
  <aside class="shop-quick"><h2>Start a new order</h2><p class="muted">Know the part number? Add it below.</p><form id="simpleQuickForm" onsubmit="event.preventDefault();checkQuickOrder()"><div id="quickRows">${quickInputRow()}</div><button type="button" class="quick-add-row" onclick="addQuickInputRow()">+ Add another part</button><textarea id="quickParts" hidden aria-hidden="true"></textarea><button class="btn btn-primary btn-block" style="margin-top:18px">Check availability & price →</button></form><div id="quickResults" role="status" aria-live="polite"></div><div class="shop-discovery"><p>Not sure which part you need?</p><a href="#/find-your-part">Find by vehicle →</a><a href="#/catalog">Browse all parts →</a></div></aside></div><p class="muted" style="margin-top:28px;font-size:12px">Local preview · Shop details, orders, and delivery updates are saved on this computer.</p></div>`;filterShopOrders('');renderHeader();
 }
@@ -3506,7 +3506,7 @@ function fillAdminDelivery(){
  document.getElementById('ordNotes').value=acct?.deliveryInstructions||'';
 }
 function adminDraftCustomerEmail(){return document.getElementById('btnExisting').classList.contains('active')?document.getElementById('ordAccountSelect').value:document.getElementById('ordManualEmail').value.trim();}
-function adminDraftDiscount(){const email=adminDraftCustomerEmail();return document.getElementById('ordDiscountCode').value.trim()||(firstOrderEligible(email)?'WELCOME100':null);}
+function adminDraftDiscount(){const email=adminDraftCustomerEmail();return document.getElementById('ordDiscountCode').value.trim()||(firstOrderEligible(email)?'WELCOME50':null);}
 function renderAdminOrderSummary(){const el=document.getElementById('adminOrderSummary');if(!el||!adminOrderDraft)return;const subtotal=adminOrderDraft.lines.reduce((n,l)=>n+l.quantity*l.priceCents,0);const totals=computeOrderTotals({subtotalCents:subtotal,shippingCents:state.storeSettings.shippingFlatCents,discountCode:adminDraftDiscount(),shopEmail:adminDraftCustomerEmail()});el.innerHTML=`<p class="create-summary-count">${adminOrderDraft.lines.reduce((n,l)=>n+l.quantity,0)} parts · ${adminOrderDraft.lines.length} line items</p>${[['Subtotal',subtotal],['Discount',totals.discountCents?-totals.discountCents:0],['Delivery',totals.shippingCents],['Tax',totals.taxCents],['Card fee',totals.cardFeeCents]].map(([label,value])=>`<div class="create-total-row"><span>${label}</span><strong>${fmt(value)}</strong></div>`).join('')}<div class="create-total-row create-grand-total"><span>Total</span><strong>${fmt(totals.totalCents)}</strong></div>${totals.discountCents?`<p class="create-discount-note">${esc(totals.discountCodeLabel)} applied</p>`:''}<p class="create-payment-note">Payment status: <strong>${esc(paymentStatusLabel(document.getElementById('ordPaymentStatus').value))}</strong></p>`;}
 function setAdminOrderAccountMode(mode){
   document.getElementById('btnExisting').classList.toggle('active', mode==='existing');
@@ -3582,7 +3582,7 @@ function submitAdminOrder(){
   }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shopEmail)){errorEl.hidden=false;errorEl.textContent='Enter a valid customer email.';return;}
   const code=adminDraftDiscount();
-  if(code&&(!findDiscountCode(code)||(code.toUpperCase()==='WELCOME100'&&!firstOrderEligible(shopEmail)))){errorEl.hidden=false;errorEl.textContent='This discount code is not valid for this customer.';return;}
+  if(code&&(!findDiscountCode(code)||(code.toUpperCase()==='WELCOME50'&&!firstOrderEligible(shopEmail)))){errorEl.hidden=false;errorEl.textContent='This discount code is not valid for this customer.';return;}
   const method = 'SHIP';
   let fulfillment;
   if(method==='SHIP'){
