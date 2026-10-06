@@ -2746,21 +2746,8 @@ function adminHeaderHtml(active){
  return `<div class="admin-shared-header"><header class="admin-overview-head"><div><span class="admin-eyebrow">CONVERTER EXPRESS / ADMIN</span><h1>${title}</h1><p class="muted">${description}</p></div><a class="btn btn-primary" href="#/admin/orders/new">+ Create order</a></header>${adminTabsHtml(active)}</div>`;
 }
 function adminTabsHtml(active){
-  return `<nav class="pill-row admin-shared-tabs" aria-label="Admin sections">
-    <a href="#/admin/dashboard" ${active==='dashboard'?'aria-current="page"':''} class="pill ${active==='dashboard'?'active':''}">Dashboard</a>
-    <a href="#/admin/accounts" ${active==='accounts'?'aria-current="page"':''} class="pill ${active==='accounts'?'active':''}">Accounts</a>
-    <a href="#/admin/orders" ${active==='orders'?'aria-current="page"':''} class="pill ${active==='orders'?'active':''}">Orders</a>
-    <a href="#/admin/invoices" ${active==='invoices'?'aria-current="page"':''} class="pill ${active==='invoices'?'active':''}">Invoices</a>
-    <a href="#/admin/revenue" ${active==='revenue'?'aria-current="page"':''} class="pill ${active==='revenue'?'active':''}">Revenue</a>
-    <a href="#/admin/products" ${active==='products'?'aria-current="page"':''} class="pill ${active==='products'?'active':''}">Products</a>
-    <a href="#/admin/discounts" ${active==='discounts'?'aria-current="page"':''} class="pill ${active==='discounts'?'active':''}">Discounts</a>
-    <a href="#/admin/requests" ${active==='requests'?'aria-current="page"':''} class="pill ${active==='requests'?'active':''}">Requests</a>
-    <a href="#/admin/quotes" ${active==='quotes'?'aria-current="page"':''} class="pill ${active==='quotes'?'active':''}">Quotes</a>
-    <a href="#/admin/tasks" ${active==='tasks'?'aria-current="page"':''} class="pill ${active==='tasks'?'active':''}">Follow-ups</a>
-    <a href="#/admin/dispatch" ${active==='dispatch'?'aria-current="page"':''} class="pill ${active==='dispatch'?'active':''}">Dispatch</a>
-    <a href="#/admin/purchasing" ${active==='purchasing'?'aria-current="page"':''} class="pill ${active==='purchasing'?'active':''}">Purchasing</a>
-    <a href="#/admin/settings" ${active==='settings'?'aria-current="page"':''} class="pill ${active==='settings'?'active':''}">Settings</a>
-  </nav>`;
+ const groups=[['Workspace',[['dashboard','Overview'],['accounts','Shop accounts'],['tasks','Follow-ups']]],['Sales & delivery',[['orders','Orders'],['quotes','Quotes'],['invoices','Invoices'],['dispatch','Dispatch'],['requests','Returns & warranty']]],['Catalog & business',[['products','Products & inventory'],['purchasing','Purchasing'],['discounts','Discounts'],['revenue','Revenue'],['settings','Settings']]]];
+ return `<nav class="admin-shared-tabs" aria-label="Admin sections"><span class="admin-nav-title">WORKSPACE</span>${groups.map(([label,items])=>`<div class="admin-nav-group"><span class="admin-nav-label">${label}</span>${items.map(([key,label])=>`<a href="#/admin/${key}" ${active===key?'aria-current="page"':''} class="pill ${active===key?'active':''}">${label}<span aria-hidden="true">${active===key?'↗':''}</span></a>`).join('')}</div>`).join('')}</nav>`;
 }
 function requireAdmin(){
   if(!state.user || state.user.role!=='ADMIN'){
