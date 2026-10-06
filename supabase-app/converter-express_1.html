@@ -2717,10 +2717,10 @@ function renderEmailPreview(id){
           <div><b>To:</b> ${esc(o.shopEmail)}</div>
           <div><b>Subject:</b> Order confirmed: ${o.invoiceNumber}</div>
         </div>
-        <div class="email-body">
-          <div class="display" style="font-size:18px;">Converter Express</div>
+        <div class="email-body" style="border-top:4px solid #e24c23;padding:28px;background:#fff;">
+          <div style="padding:24px;background:#171d21;color:white;font:700 20px Arial,sans-serif;letter-spacing:1px;">CONVERTER <span style="color:#ff8a60">EXPRESS</span></div>
           <h2 style="font-size:20px;margin-top:16px;">Thanks for your order, ${esc(o.shopName)}!</h2>
-          <p class="muted" style="font-size:13.5px;margin-top:8px;">We've received your order and it's being prepared. Here's your confirmation.</p>
+          <p class="muted" style="font-size:13.5px;margin-top:8px;">We've received your order. Review the details below and check your account for its current status.</p>
           <p style="font-size:13px;margin-top:14px;"><b>Invoice ${o.invoiceNumber}</b> · ${fmtDate(o.createdAt)}</p>
           <div class="hr" style="margin:16px 0;"></div>
           <p style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">${o.fulfillment.method==='SHIP'?'Shipping to':'Fulfillment'}</p>
@@ -2740,7 +2740,7 @@ function renderEmailPreview(id){
             <div class="line-item total"><span>Total</span><span>${fmt(o.totalCents)}</span></div>
           </div>
           <div class="hr" style="margin:20px 0 16px;"></div>
-          <p class="muted" style="font-size:12px;">Questions about this order? Reply to this email or call us. Thanks for your business, we appreciate it.</p>
+          <p class="muted" style="font-size:12px;">Questions about this order? <a href="https://www.converterexpress.co/#/contact" style="color:#b23815">Contact Converter Express</a>. Thank you for choosing us for your shop.</p>
         </div>
       </div>
     </div>`;
