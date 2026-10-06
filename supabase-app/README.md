@@ -74,6 +74,19 @@ SMTP credentials remain in the hosted provider settings; they are not stored in 
 
 Run `node scripts/build-email-templates.cjs` to generate the shared email design. It covers signup confirmation, password recovery, invitations, magic links, email changes, and reauthentication codes. Password-change and email-change security notices are enabled with the same design. Configuring a template does not enable an otherwise unused sign-in method.
 
-Order confirmations in the CRM are still explicitly labeled previews. Supabase Auth SMTP handles authentication emails only; it does not connect business-order, invoice, approval, or delivery-status emails. Those require a separate transactional sender and event wiring before customer delivery can be claimed. The order preview uses matching colors and directs recipients to the support page without assuming a working reply inbox or phone number.
+Order confirmations and invoices use the separate Resend order-email backend described below. Approval and delivery-status notifications are not wired to email.
 
 Checks: `node tests/email-templates.cjs`, the branded Auth browser test, and browser layout checks at 720px/320px. These are not Outlook/Gmail inbox-rendering or deliverability certification.
+
+
+### Order confirmations and invoices
+
+`RESEND_API_KEY` is a hosted Edge Function secret (separate from Auth SMTP). The fixed sender is `Converter Express <accounts@converterexpress.co>`. No SMTP/API credentials are published with the frontend.
+
+The private `order_emails` table records an immutable snapshot and payload. A trigger atomically queues a confirmation when a new order is committed; no historic orders are backfilled. Online checkout sends its confirmation after commit. Admin saves process up to three newly created orders immediately; any remaining queued records are sent from their order email screen. Email failures do not undo orders. Invoices are sent explicitly by an admin from **Order → Order emails → Invoice**. Customers can preview their own approved-account order emails but cannot send emails or choose recipients. Admins can retry unsuccessful messages.
+
+Accepted means Resend accepted the message, not confirmed inbox delivery. The UI shows the provider ID/status via the backend; delivery/bounce webhooks are not configured. Accepted messages cannot be resent through this action. Retry uses the same frozen content and provider idempotency key. Ambiguous attempts older than 23 hours are blocked for manual investigation to prevent duplicate sends after the provider's deduplication window. Check Resend before resolving such records through administrative database maintenance.
+
+Existing `emailSent` values in workspace JSON are not trusted or used as send status. Email previews come from the same server renderer used for sending. Order status, payments, and details can change after a message is prepared; account links show current data. Invoices are HTML/text with an authenticated invoice link, not PDF attachments.
+
+Checks: `node --test supabase-app/tests/order-email.test.mjs`, PostgreSQL outbox/RLS/lock tests in `email-database.mjs`, and the mocked UI in `order-email-browser.cjs`. One authorized `[TEST] Converter Express order email` was accepted by Resend for the owner, without creating a test order or sending to customers.
