@@ -1,3 +1,5 @@
+Latest release audit: [October 6, 2026 findings and remaining launch requirements](../docs/RELEASE-AUDIT-2026-10-06.md).
+
 **Admin sign-in update:** At the owner’s request, admin access now uses verified email/password and the server-maintained staff list. Authenticator enrollment is no longer required; earlier MFA release-check references below are superseded.
 
 # Converter Express — Supabase staging build
