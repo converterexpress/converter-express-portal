@@ -117,3 +117,26 @@
  .home-premium section.series-section .series-tile:focus-visible{outline:2px solid #f79e7c;outline-offset:-3px;}
 }
 @media(max-width:360px){.home-premium section.series-section .series-tile{padding:12px;gap:8px;}.home-premium section.series-section .series-number{font-size:27px;}.home-premium section.series-section .series-bottom{gap:7px;}}
+
+/* Featured parts on phones: readable details without nested card padding. */
+@media(max-width:640px){
+ .home-premium section.home-featured>.section-head{display:block;margin-bottom:18px;padding-bottom:16px;}
+ .home-premium section.home-featured>.section-head h2{font-size:29px;line-height:1.15;margin-top:12px;}
+ .home-premium section.home-featured>.section-head>a{display:inline-flex;align-items:center;min-height:44px;margin-top:8px;font-size:12px;}
+ .home-premium section.home-featured>.grid{grid-template-columns:minmax(0,1fr);gap:14px;}
+ .home-premium section.home-featured article.part-card{padding:0;min-width:0;border-radius:10px;}
+ .home-premium section.home-featured article.part-card .part-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;padding:18px;gap:0 14px;}
+ .home-premium section.home-featured .product-card-top{grid-column:1/-1;margin-bottom:12px;}
+ .home-premium section.home-featured .product-card-label{font-size:10px;}
+ .home-premium section.home-featured .product-stock{font-size:11px;}
+ .home-premium section.home-featured .product-card-number{margin:0;font-size:35px;line-height:1.2;}
+ .home-premium section.home-featured .product-card-number a{display:inline-flex;align-items:center;min-height:44px;}
+ .home-premium section.home-featured .product-card-category{min-height:0;font-size:12px;align-self:center;line-height:1.55;}
+ .home-premium section.home-featured .product-card-category span{font-size:11px;}
+ .home-premium section.home-featured .product-card-pricing{grid-column:1/-1;margin-top:14px;padding-top:12px;gap:0;}
+ .home-premium section.home-featured .product-price-link{min-height:44px;font-size:13px;}
+ .home-premium section.home-featured .product-dispatch{grid-column:1/-1;font-size:11px;margin:2px 0 14px;}
+ .home-premium section.home-featured .product-card-actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+ .home-premium section.home-featured .product-view{min-width:0;min-height:46px;font-size:12px;background:#20282b;border-color:#20282b;color:#fff;padding:10px 14px;}
+ .home-premium section.home-featured .product-photo{justify-content:center;min-height:46px;font-size:12px;}
+}
