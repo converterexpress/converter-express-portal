@@ -1533,14 +1533,13 @@ function renderHome(){
         </div>
       </section>
 
-      ${state.user ? '' : `
-      <section class="cta-band">
+      <section class="cta-band" aria-labelledby="first-order-offer">
         <div>
-          <span class="home-section-kicker">YOUR FIRST ORDER STARTS HERE</span><h2>Get to work.<br>Start with $50 off.</h2>
-          <p>Wholesale pricing. Free same-day delivery. Apply for a shop account and get $50 off your first order after approval.</p>
+          <span class="home-section-kicker">YOUR FIRST ORDER STARTS HERE</span><h2 id="first-order-offer">Get to work.<br>Start with $50 off.</h2>
+          <p>Wholesale pricing. Free same-day delivery. New approved shops get $50 off their first order.</p>
         </div>
-        <a href="#/register" class="btn btn-primary">Apply for a shop account <span aria-hidden="true">↗</span></a>
-      </section>`}
+        <a href="${state.user?'#/catalog':'#/register'}" class="btn btn-primary">${state.user?'Browse converters':'Apply for a shop account'} <span aria-hidden="true">↗</span></a>
+      </section>
     </div></div>
   `;
   renderHeader();
