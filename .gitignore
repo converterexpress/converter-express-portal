@@ -16,3 +16,6 @@ supabase/.temp/
 **/import.sql
 **/*-import.sql
 **/tests/latest-results.txt
+
+dist/
+.vercel/
