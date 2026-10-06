@@ -2466,13 +2466,13 @@ function renderCheckoutSuccess(){
       <div class="card" style="text-align:left;padding:14px 16px;margin-top:20px;background:var(--paper);">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:18px;">✉️</span>
-          <span style="font-size:13px;">Email preview for <b>${esc(o.shopEmail)}</b> — not sent</span>
+          <span style="font-size:13px;">Confirmation email status is available with your order.</span>
         </div>
       </div>
       <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
         <a href="#/orders/${o.id}" class="btn btn-primary">View order</a>
         <a href="#/orders/${o.id}/invoice" class="btn btn-outline">View invoice</a>
-        <a href="#/orders/${o.id}/email" class="btn btn-outline">View confirmation email</a>
+        <a href="#/orders/${o.id}/email" class="btn btn-outline">Order emails</a>
       </div>
       <a href="#/catalog" class="link-accent" style="display:inline-block;margin-top:20px;">Continue shopping →</a>
     </div>`;
@@ -2577,7 +2577,7 @@ function renderOrderDetail(id){
       ${state.user.role==='CUSTOMER'?orderHelpHtml(o):''}
       <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
         <a href="#/orders/${o.id}/invoice" class="btn btn-outline">View invoice</a>
-        <a href="#/orders/${o.id}/email" class="btn btn-outline">View confirmation email</a>
+        <a href="#/orders/${o.id}/email" class="btn btn-outline">Order emails</a>
       </div>
     </div>`;
   renderHeader();

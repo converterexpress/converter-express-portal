@@ -1,4 +1,5 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
+import {orderEmail,sendOrderEmail} from '../_shared/order-email.mjs';
 import {project,command,validate,principal,AppError} from '../_shared/business.mjs';
 const url=Deno.env.get('SUPABASE_URL')!;
 const secret=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -14,6 +15,7 @@ async function identity(req:Request){
  const claims=claimsResult.data.claims;if(!claims.session_id||!await rpc('ce_session_live',{uid:user.id,sid:claims.session_id}))throw new AppError('Session expired. Sign in again.',401);
  const staff=await rpc('ce_staff_check',{uid:user.id});return principal(user,staff?[user.id]:[],claims);
 }
+async function sendMail(orderId:string,kind:string){try{return await sendOrderEmail({rpc,apiKey:Deno.env.get('RESEND_API_KEY'),orderId,kind});}catch{return {status:'unknown',issue:'Order saved. Email could not be confirmed; review its send status.'};}}
 Deno.serve(async req=>{
  const origin=req.headers.get('Origin')||'';
  const headers:Record<string,string>={'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Vary':'Origin'};
@@ -44,13 +46,33 @@ Deno.serve(async req=>{
    const account=row.data.accounts.find((a:any)=>a.id===body.accountId);if(!account?.licensePath)throw new AppError('License not found',404);
    const {data,error}=await db.storage.from('business-licenses').createSignedUrl(account.licensePath,60,{download:true});if(error)throw new AppError('License unavailable',404);return respond({url:data.signedUrl});
   }
+  if(body.action==='email-test'){
+   if(!user?.admin)throw new AppError('Administrator sign-in required',403);
+   if(Object.keys(body).some(k=>!['action','requestId'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.requestId||''))throw new AppError('Invalid test request');
+   const key=Deno.env.get('RESEND_API_KEY');if(!key)throw new AppError('Order email sending is not configured',503);
+   if(!await rpc('ce_rate_limit',{subject_key:'email-test-'+user.id,max_hits:1}))throw new AppError('Wait before sending another test',429);
+   const mail=orderEmail({id:'test',invoiceNumber:'TEST — No order created',shopEmail:user.email,shopName:'Converter Express test',paymentStatus:'UNPAID',lines:[{partId:'TEST',name:'Email connection test only',quantity:1,priceCents:0}],subtotalCents:0,totalCents:0},'confirmation');
+   mail.subject='[TEST] Converter Express order email';mail.html=mail.html.replace('We received your order','Email connection test').replace('Thank you for ordering with Converter Express. Check your account for the latest order and delivery status.','This is an authorized test. No order was created and no payment is due.').replaceAll('https://www.converterexpress.co/#/orders/test','https://www.converterexpress.co/');mail.text='TEST ONLY — no order created, no payment due. Converter Express order email connection test.';
+   const sent=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','Idempotency-Key':'ce-test-'+body.requestId},body:JSON.stringify(mail),signal:AbortSignal.timeout(12000)});
+   const result=await sent.json();if(!sent.ok||!result.id)throw new AppError('Test email could not be accepted by the provider',502);
+   return respond({status:'accepted',providerId:result.id});
+  }
+  if(body.action==='order-email'){
+   if(Object.keys(body).some(k=>!['action','orderId','kind','operation'].includes(k))||!['confirmation','invoice'].includes(body.kind)||!['preview','send','status'].includes(body.operation))throw new AppError('Invalid email request');
+   const row=await rpc('ce_workspace_read');const order=row?.data.orders.find((o:any)=>o.id===body.orderId);
+   if(!order||!user?.admin&&(!row.data.accounts.some((a:any)=>a.id===user?.id&&a.status==='APPROVED')||order.shopEmail.toLowerCase()!==user?.email?.toLowerCase()))throw new AppError('Order not found',404);
+   if(body.operation==='send'&&!user?.admin)throw new AppError('Administrator sign-in required',403);
+   if(body.operation==='preview'){const queued=await rpc('ce_email_read',{oid:order.id,mail_kind:body.kind});const mail=queued?.payload||orderEmail(queued?.snapshot||order,body.kind);return respond({subject:mail.subject,html:mail.html,to:mail.to[0]});}
+   if(body.operation==='send'){if(order.cancelled)throw new AppError('Cancelled orders cannot be emailed');return respond({email:await sendMail(order.id,body.kind)});}
+   return respond({emails:await rpc('ce_email_list',{oid:order.id}),configured:!!Deno.env.get('RESEND_API_KEY')});
+  }
   if(body.action==='admin-save'){
    if(!user?.admin)throw new AppError('Administrator sign-in required',403);
    validate(body.data);
    const row=await rpc('ce_workspace_read');if(!row||row.revision!==body.revision)throw new AppError('Another change was saved. Reload and try again.',409);
    // Business edits never reassign ownership or delete an authenticated shop.
    if(row.data.accounts.some((a:any)=>!body.data.accounts.some((b:any)=>b.id===a.id&&b.email===a.email))||body.data.accounts.some((a:any)=>!row.data.accounts.some((b:any)=>b.id===a.id)))throw new AppError('Account identity cannot be edited through a workspace save');
-   const revision=await rpc('ce_workspace_commit',{expected:body.revision,body:body.data,actor:user.id,event:'admin-save'});return respond({revision});
+   const revision=await rpc('ce_workspace_commit',{expected:body.revision,body:body.data,actor:user.id,event:'admin-save'});const added=body.data.orders.filter((o:any)=>!o.cancelled&&!row.data.orders.some((old:any)=>old.id===o.id));const emails=await Promise.all(added.slice(0,3).map(async(o:any)=>({orderId:o.id,...await sendMail(o.id,'confirmation')})));return respond({revision,emails});
   }
   // Retry only after re-reading and re-running rules. Atomic compare-and-swap prevents overselling.
   for(let attempt=0;attempt<4;attempt++){
@@ -62,7 +84,7 @@ Deno.serve(async req=>{
     const valid=magic[0]===255&&magic[1]===216&&magic[2]===255||magic[0]===137&&signature.slice(1,4)==='PNG'||signature.startsWith('%PDF-')||signature.startsWith('RIFF')&&signature.slice(8,12)==='WEBP';if(!valid)throw new AppError('License file format is not supported');
    }
    const next=command(row.data,user,body);
-   try{const revision=await rpc('ce_workspace_commit',{expected:row.revision,body:next.data,actor:user!.id,event:body.action});return respond({...project(next.data,user),revision,result:next.result});}catch(e){if(!(e instanceof AppError)||e.status!==409||attempt===3)throw e;}
+   try{const revision=await rpc('ce_workspace_commit',{expected:row.revision,body:next.data,actor:user!.id,event:body.action});const email=body.action==='order'?await sendMail(next.result.id,'confirmation'):null;return respond({...project(next.data,user),revision,result:next.result,email});}catch(e){if(!(e instanceof AppError)||e.status!==409||attempt===3)throw e;}
   }
   throw new AppError('Unable to save after concurrent changes. Please retry.',409);
  }catch(e){if(e instanceof AppError)return respond({error:e.message},e.status);console.error('crm-api request failed');return respond({error:'Unable to complete the request. Please retry.'},500);}
