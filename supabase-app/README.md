@@ -1,3 +1,5 @@
+**Admin sign-in update:** At the owner’s request, admin access now uses verified email/password and the server-maintained staff list. Authenticator enrollment is no longer required; earlier MFA release-check references below are superseded.
+
 # Converter Express — Supabase staging build
 
 **Connected backend as of October 6, 2026.** Project `hjxhaxlthpqqktregwvu` has the private schema, clean 1,308-part catalog and `crm-api` Edge Function deployed. The original local preview on port 8766 is unchanged. Public bootstrap, unauthenticated command rejection, direct workspace RPC denial and origin restrictions have been verified on the hosted backend. Owner registration/MFA, customer email delivery and the remaining hosted acceptance checks below are still pending.

@@ -34,20 +34,18 @@ Deno.serve(async req=>{
    const response=await fetch(target,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(20000)});if(!response.ok)throw new AppError('Fitment lookup unavailable',502);return respond(await response.json());
   }
   if(body.action==='bootstrap'){
-   // Staff must finish MFA before any workspace projection can be returned.
-   if(user?.admin&&user.aal!=='aal2')return respond({mfaRequired:true});
    const row=await rpc('ce_workspace_read');if(!row)throw new AppError('Catalog setup has not been completed',503);
    return respond({...project(row.data,user),revision:row.revision});
   }
   if(body.action==='quote'){const row=await rpc('ce_workspace_read');if(!row)throw new AppError('Workspace unavailable',503);const result=command(row.data,user,{...body,action:'order'});return respond({quote:result.result});}
   if(body.action==='license'){
    const row=await rpc('ce_workspace_read');if(!row)throw new AppError('Workspace unavailable',503);
-   if(!user?.admin||user.aal!=='aal2')throw new AppError('Administrator two-factor sign-in required',403);
+   if(!user?.admin)throw new AppError('Administrator sign-in required',403);
    const account=row.data.accounts.find((a:any)=>a.id===body.accountId);if(!account?.licensePath)throw new AppError('License not found',404);
    const {data,error}=await db.storage.from('business-licenses').createSignedUrl(account.licensePath,60,{download:true});if(error)throw new AppError('License unavailable',404);return respond({url:data.signedUrl});
   }
   if(body.action==='admin-save'){
-   if(!user?.admin||user.aal!=='aal2')throw new AppError('Administrator two-factor sign-in required',403);
+   if(!user?.admin)throw new AppError('Administrator sign-in required',403);
    validate(body.data);
    const row=await rpc('ce_workspace_read');if(!row||row.revision!==body.revision)throw new AppError('Another change was saved. Reload and try again.',409);
    // Business edits never reassign ownership or delete an authenticated shop.
