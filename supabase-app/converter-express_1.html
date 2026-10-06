@@ -4386,6 +4386,8 @@ function saveCrmNotes(id){
 function fitmentHtml(){return `<section class="fitment" aria-labelledby="fitment-title"><div class="fitment-head"><div><span class="fitment-kicker">CHECK VEHICLE COMPATIBILITY</span><h2 id="fitment-title">Find the right converter</h2><p>Search by vehicle, engine, and emissions test group.</p></div></div><form id="fitment-form"><div class="fitment-fields">${[['year','Year'],['make','Make'],['model','Model'],['engine_size','Engine size'],['test_group','Emissions test group']].map(([key,label])=>`<label>${label}<select name="${key}" disabled><option value="">${key==='test_group'?'All test groups':'Select '+label.toLowerCase()}</option></select></label>`).join('')}</div><div class="fitment-actions"><button type="submit" class="btn btn-primary" disabled>Find converters</button><button type="reset" class="btn btn-outline">Clear selections</button><span>Test group: check the emissions label under your hood.</span></div></form><p id="fitment-status" role="status" aria-live="polite">Loading vehicle options…</p><div id="fitment-results"></div><button id="fitment-more" class="btn btn-outline" hidden>Load more results</button></section>`;}
 // Accessible searchable pickers; the original selects remain the source of form values.
 function enhanceFitmentPickers(form){
+ // Use the device picker on touch screens and where popovers are unavailable.
+ if(matchMedia('(pointer: coarse), (max-width: 760px)').matches || typeof HTMLElement.prototype.showPopover!=='function' || typeof HTMLElement.prototype.hidePopover!=='function')return;
  const cleanups=[];let closeCurrent=()=>{};
  const names={year:'Year',make:'Make',model:'Model',engine_size:'Engine',test_group:'All test groups'};
  form.querySelectorAll('select').forEach(select=>{
