@@ -20,8 +20,8 @@ See [Supabase setup and release checks](supabase-app/README.md). Supply only a S
 
 ## Vercel deployment
 
-Vercel now serves the Supabase frontend as static files, rather than starting the original Express/SQLite server. Keep the Vercel Root Directory at the repository root. `vercel.json` selects the Other framework, runs `node scripts/build-static.cjs`, and publishes only `dist/`. The build uses an explicit public asset allowlist and supplies `index.html` for the homepage. Hash-based routes work without a server function.
+Vercel now serves the Supabase frontend as static files, rather than starting the original Express/SQLite server. Keep the Vercel Root Directory at the repository root. `vercel.json` selects the Other framework, runs `node scripts/build-static.cjs`, and publishes only `dist/`. The build uses an explicit public asset allowlist and supplies `index.html` for the homepage. Hash-based page routes use static files. The two read-only `/api/fitment/*` functions proxy vehicle options and application results from the existing lookup provider; they do not need Supabase or access the business database.
 
-Run `node tests/static-build.cjs` to verify the deployment artifact. Account access remains disabled until Supabase is configured; publishing the frontend does not provision the backend. Complete the Supabase setup and release checks before accepting live orders.
+Run `node tests/static-build.cjs` and `node tests/fitment.cjs` to verify the deployment artifact and public lookup. Account access remains disabled until Supabase is configured; publishing the frontend does not provision the backend. Complete the Supabase setup and release checks before accepting live orders.
 
 `npm start` still runs the original portal locally. The older [deployment guide](README-DEPLOY.md) applies only to that Node portal, not Vercel.

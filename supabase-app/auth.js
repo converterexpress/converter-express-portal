@@ -16,7 +16,7 @@ async function api(body){
 }
 window.fetch=async function(input,options){
  const path=typeof input==='string'?input:'';
- if(path.startsWith('/api/fitment/')){const u=new URL(path,location.origin);try{return new Response(JSON.stringify(await api({action:'fitment',route:u.pathname.endsWith('/filters')?'filters':'search',query:u.search.slice(1)})),{status:200,headers:{'Content-Type':'application/json'}});}catch(e){return new Response(JSON.stringify({error:e.message}),{status:502});}}
+ // Public vehicle lookup uses its read-only Vercel endpoint, independently of account setup.
  if(path.startsWith('/api/workspace'))throw Error('The legacy workspace endpoint is disabled.');
  return nativeFetch(input,options);
 };
