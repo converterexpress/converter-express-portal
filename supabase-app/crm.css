@@ -95,3 +95,25 @@
   mask-image:linear-gradient(to bottom,transparent 0%,#000 34%);
  }
 }
+
+/* Phone catalog: full-width series rows, no empty tile space. */
+@media(max-width:640px){
+ .home-premium section.series-section{padding:24px 16px 16px;}
+ .home-premium section.series-section .series-heading{display:block;margin-bottom:18px;}
+ .home-premium section.series-section .series-heading h2{font-size:28px;line-height:1.12;margin-top:12px;}
+ .home-premium section.series-section .series-heading p{font-size:13px;line-height:1.6;margin-top:10px;}
+ .home-premium section.series-section .series-all{display:inline-flex;align-items:center;gap:16px;min-height:44px;margin-top:10px;font-size:12px;}
+ .home-premium section.series-section .series-tiles{grid-template-columns:1fr;gap:0;border-radius:9px;overflow:hidden;}
+ .home-premium section.series-section .series-tile{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:14px;min-height:82px;border:0;border-bottom:1px solid #3c454b;border-radius:0;transform:none;}
+ .home-premium section.series-section .series-tile:last-child{border-bottom:0;}
+ .home-premium section.series-section .series-identity{min-width:0;}
+ .home-premium section.series-section .series-family{font-size:10px;line-height:1.4;margin-bottom:5px;}
+ .home-premium section.series-section .series-number{font-size:30px;line-height:1.1;margin:0;}
+ .home-premium section.series-section .series-label{display:none;}
+ .home-premium section.series-section .series-bottom{display:flex;flex-direction:row;align-items:center;gap:10px;margin:0;padding:0;border:0;}
+ .home-premium section.series-section .series-bottom .count{font-size:11px;white-space:nowrap;}
+ .home-premium section.series-section .series-arrow{width:26px;height:26px;flex-shrink:0;font-size:17px;}
+ .home-premium section.series-section .series-tile:active{background:#313b41;}
+ .home-premium section.series-section .series-tile:focus-visible{outline:2px solid #f79e7c;outline-offset:-3px;}
+}
+@media(max-width:360px){.home-premium section.series-section .series-tile{padding:12px;gap:8px;}.home-premium section.series-section .series-number{font-size:27px;}.home-premium section.series-section .series-bottom{gap:7px;}}
