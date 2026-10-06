@@ -4,7 +4,7 @@ const ceConfig=window.CE_CONFIG||{};
 const configured=/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(ceConfig.supabaseUrl||'')&&/^sb_publishable_/.test(ceConfig.publishableKey||'');
 const ce= configured?supabase.createClient(ceConfig.supabaseUrl,ceConfig.publishableKey,{auth:{flowType:'pkce',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
 const nativeFetch=window.fetch.bind(window);
-let authBusy=false,commandBusy=false,orderRequestId=null,authReady=false,refreshTimer;
+let authBusy=false,commandBusy=false,orderRequestId=null,authReady=false,connectionUnavailable=false,refreshTimer;
 const originalRegister=renderRegister,originalRoute=renderRoute,originalShopDetails=renderShopDetails;
 const originalStock=crmAvailable;
 async function api(body){
@@ -25,7 +25,7 @@ function applyRemote(d){
  const previous=state.user?.id;state.user=d.user;
  for(const k of ['accounts','orders','storeSettings','discountCodes'])state[k]=d.data[k];state.crm=d.data.crm;restoreCatalogProducts(d.data.products);for(const p of d.data.products){const local=byNumber(p.partNumber);if(local)Object.assign(local,p);}
  if(previous&&previous!==state.user?.id)state.cart=[];
- workspaceRevision=d.revision;workspaceSaved=JSON.stringify(workspaceData());workspaceReady=true;workspaceConflict=false;renderHeader();return true;
+ connectionUnavailable=false;workspaceRevision=d.revision;workspaceSaved=JSON.stringify(workspaceData());workspaceReady=true;workspaceConflict=false;renderHeader();return true;
 }
 async function loadRemote(){const d=await api({action:'bootstrap'});return applyRemote(d);}
 rememberPreviewUser=function(){try{sessionStorage.removeItem('ce-preview-user');sessionStorage.setItem('ce-preview-cart',JSON.stringify({owner:state.user?.id||null,lines:state.cart}));}catch{}};
@@ -60,10 +60,12 @@ applyDiscountCode=function(){checkoutDiscountCode=document.getElementById('promo
 fakePay=async function(){const button=document.getElementById('payBtn');if(button.disabled)return;button.disabled=true;try{orderRequestId ||=crypto.randomUUID();const o=await shopCommand({action:'order',idempotencyKey:orderRequestId,items:state.cart.map(l=>({partId:l.partId,quantity:l.quantity})),fulfillment:checkoutFulfillment,job:readJobFields('checkout'),poNumber:document.getElementById('poNumber')?.value||'',notes:document.getElementById('notes')?.value||'',discountCode:checkoutDiscountCode||''});state.lastOrderId=o.id;state.cart=[];orderRequestId=null;rememberPreviewUser();nav('#/checkout/success');render();}catch(e){workspaceStatus(e.message,true);}finally{button.disabled=false;}};
 async function openLicense(id){try{const d=await api({action:'license',accountId:id});const a=document.createElement('a');a.href=d.url;a.target='_blank';a.rel='noopener noreferrer';a.click();}catch(e){workspaceStatus(e.message,true);}}
 renderShopDetails=function(){originalShopDetails();if(state.user){const el=document.createElement('p');el.style.marginTop='24px';el.innerHTML='<a class="link-accent" href="#/account/password">Change password</a>';app.append(el);}};
-renderRoute=function(){if(location.hash==='#/account/password')return passwordForm();return originalRoute();};
+function publicRoute(){return /^#\/(?:$|(?:catalog|find-your-part|about|contact|returns|terms|privacy|login|register)(?:[/?]|$))/.test(location.hash||'#/');}
+function connectionErrorPage(){app.innerHTML='<div class="page-narrow"><h1>Account service unavailable</h1><p id="connectionError" role="status">We could not connect. Please try again to access your account.</p><button class="btn btn-primary" onclick="location.reload()">Try again</button> <a href="#/">Back to homepage</a></div>';}
+renderRoute=function(){if(connectionUnavailable&&!publicRoute())return connectionErrorPage();if(location.hash==='#/account/password')return passwordForm();return originalRoute();};
 async function startSupabase(){
- clearPrivateState(true);if(!configured){render();workspaceStatus('Supabase is not connected yet. Account access is disabled.',true);return;}
+ clearPrivateState(true);if(publicRoute())render(true);if(!configured){render();workspaceStatus('Supabase is not connected yet. Account access is disabled.',true);return;}
  try{const savedCart=JSON.parse(sessionStorage.getItem('ce-preview-cart')||'null');ce.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')setTimeout(()=>{location.hash='#/account/password';passwordForm();},0);if(event==='SIGNED_OUT'){clearPrivateState();nav('#/login');renderLogin();}});await ce.auth.getSession();if(await loadRemote()){const saved=savedCart;if(saved&&saved.owner===state.user?.id&&Array.isArray(saved.lines))state.cart=saved.lines.filter(l=>byNumber(l.partId)&&Number.isSafeInteger(l.quantity)&&l.quantity>0);render(true);}authReady=true;setInterval(saveWorkspace,1200);setInterval(rememberPreviewUser,1200);refreshTimer=setInterval(async()=>{if(!workspaceSaving&&!commandBusy&&state.user?.role==='CUSTOMER'&&location.hash==='#/orders'&&!document.activeElement?.matches('input,textarea,select'))try{if(await loadRemote())renderRoute();}catch{}},15000);
- }catch(e){clearPrivateState();app.innerHTML='<div class="page-narrow"><h1>Unable to connect</h1><p id="connectionError" role="status"></p><button class="btn btn-primary" onclick="location.reload()">Try again</button></div>';document.getElementById('connectionError').textContent=e.message;}
+ }catch(e){clearPrivateState();connectionUnavailable=true;render(true);}
 }
 startSupabase();
