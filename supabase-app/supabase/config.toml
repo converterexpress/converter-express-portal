@@ -5,8 +5,8 @@ project_id = "converter-express"
 verify_jwt = false
 
 [auth]
-site_url = "https://converter-express-portal-converterexpress1-9251.vercel.app/"
-additional_redirect_urls = ["https://converter-express-portal.vercel.app/", "https://converter-express-portal-s1yb.vercel.app/", "https://converter-express-portal.vercel.app/converter-express_1.html", "https://converter-express-portal-s1yb.vercel.app/converter-express_1.html", "https://converter-express-portal-converterexpress1-9251.vercel.app/", "https://converter-express-portal-converterexpress1-9251.vercel.app/**", "https://converter-*-express-portal-converterexpress1-9251.vercel.app", "https://converter-*-express-portal-converterexpress1-9251.vercel.app/**"]
+site_url = "https://www.converterexpress.co/"
+additional_redirect_urls = ["https://www.converterexpress.co/", "https://converterexpress.co/", "https://converter-express-portal.vercel.app/", "https://converter-express-portal-s1yb.vercel.app/", "https://converter-express-portal.vercel.app/converter-express_1.html", "https://converter-express-portal-s1yb.vercel.app/converter-express_1.html", "https://converter-express-portal-converterexpress1-9251.vercel.app/", "https://converter-express-portal-converterexpress1-9251.vercel.app/**", "https://converter-*-express-portal-converterexpress1-9251.vercel.app", "https://converter-*-express-portal-converterexpress1-9251.vercel.app/**"]
 minimum_password_length = 10
 
 [auth.email]
@@ -15,3 +15,11 @@ enable_confirmations = true
 [auth.mfa.totp]
 enroll_enabled = true
 verify_enabled = true
+
+[auth.email.template.confirmation]
+subject = "Verify your Converter Express account"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Converter Express password"
+content_path = "./supabase/templates/recovery.html"
