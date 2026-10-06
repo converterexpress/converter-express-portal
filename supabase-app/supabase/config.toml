@@ -16,11 +16,11 @@ enable_confirmations = true
 enroll_enabled = true
 verify_enabled = true
 
-# Enable the following after configuring custom SMTP. The default free provider rejects template updates.
-# [auth.email.template.confirmation]
-# subject = "Verify your Converter Express account"
-# content_path = "./supabase/templates/confirmation.html"
+# Branded templates enabled after custom SMTP setup.
+[auth.email.template.confirmation]
+subject = "Verify your Converter Express account"
+content_path = "./supabase/templates/confirmation.html"
 
-# [auth.email.template.recovery]
-# subject = "Reset your Converter Express password"
-# content_path = "./supabase/templates/recovery.html"
+[auth.email.template.recovery]
+subject = "Reset your Converter Express password"
+content_path = "./supabase/templates/recovery.html"

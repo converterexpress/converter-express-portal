@@ -66,4 +66,6 @@ The existing CRM is preserved using one private, revisioned JSON workspace. API 
 
 ### Branded authentication email setup
 
-The `/\#/verify` screen and branded templates in `supabase/templates/` are prepared. Supabase rejected publishing the templates because the project's free default email provider does not support template modification. Configure a custom SMTP provider before enabling the template blocks in `supabase/config.toml`. Until then, existing verification emails remain in use. The website remains the signup/sign-in interface and `https://www.converterexpress.co/` is the intended Auth site URL. No test email has been sent, and inbox delivery is not verified.
+Custom SMTP is configured in the hosted Supabase project. The confirmation and recovery templates in `supabase/templates/` were activated on October 6, 2026. Both link to the Converter Express `/#/verify` page, which removes the token from the address bar and verifies it only after the user clicks the confirmation button. Auth site URL is `https://www.converterexpress.co/`.
+
+SMTP credentials remain in the hosted provider settings; they are not stored in the repository. Successful template configuration does not establish inbox delivery. Validate delivery separately through an explicitly authorized test email.
