@@ -12,4 +12,10 @@ await p.goto('http://127.0.0.1:8778/converter-express_1.html#/verify');await p.r
  assert.equal(await message.locator('a').getAttribute('href'),'#/login');
  assert(!(await p.locator('#regForm button').isDisabled()));
 }
+await p.evaluate(()=>{state.user={id:'user-a',email:'a@example.test',role:'CUSTOMER',status:'APPLICATION_REQUIRED'};renderRegister();});
+assert.equal(await p.locator('#app h1').textContent(),'Finish your shop application');
+assert.match(await p.locator('#app').innerText(),/signed in/i);
+assert.equal(await p.locator('#regForm input[name=password]').count(),0);
+assert.equal(await p.locator('#app a[href="#/login"]').count(),0);
+assert(await p.locator('#regForm input[name=email]').getAttribute('readonly')!==null);
 assert.deepEqual(errors,[]);console.log('PASS branded email confirmation, token removed from URL, successful session and invalid link handling');}finally{await b.close()}})().catch(e=>{console.error(e);process.exit(1)});
