@@ -3342,41 +3342,41 @@ function renderAdminDashboard(){
 function renderAdminAccounts(){
   if(!requireAdmin()) return;
   const pending = state.accounts.filter(a=>a.status==='PENDING');
-  const all = state.accounts;
+  const reviewed = state.accounts.filter(a=>a.status!=='PENDING');
+  const approved = state.accounts.filter(a=>a.status==='APPROVED').length;
   app.innerHTML = `
-    <div class="page admin-shell">
+    <div class="page admin-shell accounts-page">
       ${adminHeaderHtml('accounts')}
-      <h2 style="font-size:18px;">Pending approval (${pending.length})</h2>
-      ${pending.length===0 ? `<p class="muted" style="margin-top:10px;">No accounts waiting for review. New shop applications will appear here.</p>` : `
-        <div style="margin-top:12px;">
-          ${pending.map(a=>`
-            <div class="acct-row">
-              <div>
-                <a href="#/admin/accounts/${encodeURIComponent(a.id)}" style="font-size:13.5px;font-weight:700;color:var(--ink);">${esc(a.shopName)}</a>
-                <div class="muted" style="font-size:12.5px;">${esc(a.contactName)} · ${esc(a.email)} · ${esc(a.phone)}</div>
-                <div class="muted" style="font-size:12.5px;">${esc(a.addressLine1)}, ${esc(a.city)}, ${esc(a.state)} ${esc(a.postalCode)}</div>
-                <div style="margin-top:4px;">${a.licensePath ? `<button class="btn btn-outline btn-sm" onclick="openLicense('${esc(a.id)}')">View license/permit ↗</button>` : a.licenseFileDataUrl ? `<a href="${a.licenseFileDataUrl}" target="_blank" rel="noopener" class="link-accent" style="font-size:12px;font-weight:600;">View license/permit ↗</a>` : `<span class="badge badge-warn" style="font-size:10.5px;">No license uploaded</span>`}</div>
-              </div>
-              <div style="display:flex;gap:8px;">
-                <button class="btn btn-primary btn-sm" onclick="approveAccount('${esc(a.id)}')">Approve</button>
-                <button class="btn btn-outline btn-sm" onclick="rejectAccount('${esc(a.id)}')">Reject</button>
-              </div>
-            </div>
-          `).join('')}
-        </div>`}
-
-      <h2 style="font-size:18px;margin-top:40px;">All accounts (${all.length})</h2>
-      <div style="margin-top:12px;">
-        ${all.length===0 ? `<p class="muted">No shop accounts yet.</p>` : all.map(a=>`
-          <div class="acct-row">
-            <div>
-              <a href="#/admin/accounts/${encodeURIComponent(a.id)}" style="font-size:13.5px;font-weight:700;color:var(--ink);">${esc(a.shopName)}</a>
-              <div class="muted" style="font-size:12.5px;">${esc(a.email)}</div>
-            </div>
-            <span class="badge ${a.status==='APPROVED'?'badge-good':a.status==='REJECTED'?'badge-bad':'badge-line'}">${a.status}</span>
-          </div>
-        `).join('')}
+      <div class="accounts-overview" aria-label="Account summary">
+        <span><strong>${state.accounts.length}</strong> Total shops</span>
+        <span><strong>${pending.length}</strong> Awaiting review</span>
+        <span><strong>${approved}</strong> Approved</span>
       </div>
+      <section aria-labelledby="account-review-heading">
+        <div class="accounts-section-heading"><div><h2 id="account-review-heading">Applications to review <span>${pending.length}</span></h2><p>Check the shop details and business license before approving access.</p></div></div>
+        <div class="accounts-review-list">
+        ${pending.length===0 ? `<div class="accounts-empty"><strong>You’re all caught up</strong><p>New applications will appear here when a shop submits its details.</p></div>` : pending.map(a=>`
+          <article class="account-review-card">
+            <div class="account-card-title"><div><span class="account-kicker">Shop application</span><h3><a href="#/admin/accounts/${encodeURIComponent(a.id)}">${esc(a.shopName)}</a></h3></div><span class="badge badge-warn">Pending review</span></div>
+            <dl class="account-review-details">
+              <div><dt>Contact</dt><dd>${esc(a.contactName||'Not provided')}</dd><dd class="account-secondary">${esc(a.phone||'No phone provided')}</dd></div>
+              <div><dt>Email</dt><dd>${esc(a.email)}</dd></div>
+              <div><dt>Shop address</dt><dd>${esc(a.addressLine1||'Not provided')}</dd><dd class="account-secondary">${esc([a.city,a.state,a.postalCode].filter(Boolean).join(', '))}</dd></div>
+            </dl>
+            <div class="account-card-footer">
+              <div>${a.licensePath ? `<button class="btn btn-outline btn-sm" onclick="openLicense('${esc(a.id)}')">View business license ↗</button>` : a.licenseFileDataUrl ? `<a href="${a.licenseFileDataUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">View business license ↗</a>` : `<span class="badge badge-warn">No license uploaded</span>`}</div>
+              <div class="account-review-actions"><button class="btn btn-outline btn-sm" onclick="rejectAccount('${esc(a.id)}')">Reject</button><button class="btn btn-primary btn-sm" onclick="approveAccount('${esc(a.id)}')">Approve shop →</button></div>
+            </div>
+          </article>`).join('')}
+        </div>
+      </section>
+      <section class="accounts-directory" aria-labelledby="account-directory-heading">
+        <div class="accounts-section-heading"><div><h2 id="account-directory-heading">Reviewed shops <span>${reviewed.length}</span></h2><p>Manage shops after their application has been reviewed.</p></div></div>
+        <div class="accounts-directory-list">
+        ${reviewed.length===0 ? `<div class="accounts-empty"><strong>No reviewed shops yet</strong><p>Approved and rejected applications will move here.</p></div>` : reviewed.map(a=>`
+          <a class="account-directory-row" href="#/admin/accounts/${encodeURIComponent(a.id)}"><div><strong>${esc(a.shopName)}</strong><span>${esc(a.email)}</span></div><span class="badge ${a.status==='APPROVED'?'badge-good':a.status==='REJECTED'?'badge-bad':'badge-line'}">${esc(a.status)}</span><span aria-hidden="true">→</span></a>`).join('')}
+        </div>
+      </section>
     </div>`;
   renderHeader();
 }
