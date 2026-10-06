@@ -63,3 +63,7 @@ Use Node 22 or newer and install Playwright with Chrome available. `PLAYWRIGHT_M
 ## Current architecture limits
 
 The existing CRM is preserved using one private, revisioned JSON workspace. API authorization is enforced in the Edge Function, not by exposing that row to customers with RLS. Global compare-and-swap serializes writes and prevents lost updates; a larger deployment should migrate high-volume records into normalized tables/transactions. This design is not a claim of unlimited scale or a completed external security audit.
+
+### Branded authentication email setup
+
+The `/\#/verify` screen and branded templates in `supabase/templates/` are prepared. Supabase rejected publishing the templates because the project's free default email provider does not support template modification. Configure a custom SMTP provider before enabling the template blocks in `supabase/config.toml`. Until then, existing verification emails remain in use. The website remains the signup/sign-in interface and `https://www.converterexpress.co/` is the intended Auth site URL. No test email has been sent, and inbox delivery is not verified.
