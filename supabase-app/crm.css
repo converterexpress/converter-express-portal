@@ -68,3 +68,22 @@
 .about-page .eyebrow{color:#a83212;background:none;border:0;border-radius:0;padding:0}.about-page .about-hero .eyebrow,.about-page .about-close .eyebrow{color:#ffab87}
 
 @media(pointer:coarse),(max-width:760px){.fitment-fields select{font-size:16px;min-height:48px;max-width:100%;width:100%;}.fitment-fields>label{min-width:0;}}
+
+/* A compact mobile introduction with clear actions and room for the product. */
+@media(max-width:640px){
+ .home-premium section.hero.hero-shop .hero-inner{padding:30px 22px 190px;min-height:0;}
+ .home-premium section.hero.hero-shop .eyebrow{font-size:9px;letter-spacing:.12em;margin-bottom:18px;line-height:1.5;}
+ .home-premium section.hero.hero-shop h1{font-size:clamp(43px,12vw,62px);line-height:1.02;letter-spacing:-.015em;margin:0 0 16px;}
+ .home-premium section.hero.hero-shop h1 span{display:block;margin-top:3px;}
+ .home-premium section.hero.hero-shop .lede{font-size:14px;line-height:1.65;margin-bottom:22px;max-width:370px;}
+ .home-premium section.hero.hero-shop .hero-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:stretch;}
+ .home-premium section.hero.hero-shop .hero-actions .btn{min-height:48px;padding:12px 10px;font-size:11px;line-height:1.35;display:flex;align-items:center;justify-content:center;gap:7px;}
+ .home-premium section.hero.hero-shop .hero-actions .btn-outline{background:transparent;border-color:#626a70;color:#eef1f3;}
+ .home-premium section.hero.hero-shop .hero-first-order{margin-top:20px;max-width:none;padding:14px 16px;border:1px solid #ffffff20;border-radius:8px;background:#ffffff06;gap:14px;}
+ .home-premium section.hero.hero-shop .hero-first-order strong{font-size:23px;letter-spacing:-.025em;color:#ffb193;}
+ .home-premium section.hero.hero-shop .hero-first-order>span{font-size:11px;line-height:1.55;padding-left:14px;max-width:240px;}
+ .home-premium section.hero.hero-shop .hero-note{margin-top:14px;font-size:11px;line-height:1.5;gap:8px;color:#c1c8ce;}
+ .home-premium section.hero.hero-shop .hero-product-photo{height:195px;object-position:right bottom;}
+ .home-premium section.hero.hero-shop::before{height:210px;background:linear-gradient(180deg,#080b0f 0%,rgba(8,11,15,.4) 22%,transparent 62%);}
+}
+@media(max-width:360px){.home-premium section.hero.hero-shop .hero-inner{padding-left:18px;padding-right:18px;}.home-premium section.hero.hero-shop .hero-actions .btn{font-size:10px;}.home-premium section.hero.hero-shop .hero-first-order{padding:12px;gap:10px;}}
