@@ -1,6 +1,6 @@
 # Search visibility
 
-Canonical website: https://converter-express-portal.vercel.app
+Canonical website: https://www.converterexpress.co
 
 The build creates `/sitemap.xml`, `/robots.txt`, and three public HTML pages: `/catalytic-converters`, `/shop-delivery`, and `/about-converter-express`. These pages explain the supplier, catalog, vehicle lookup, ordering, warranty, and delivery service using the business details supplied by the owner. They are linked from the homepage footer and each other, and include unique titles, descriptions, canonical URLs, social metadata, and Organization structured data. No invented address, ratings, stock levels, or product prices are used.
 
