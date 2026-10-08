@@ -32,5 +32,40 @@
       ]
     }
   ],
-  "cleanUrls": true
+  "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "converterexpress.co"
+        }
+      ],
+      "destination": "https://converterexpress.net/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.converterexpress.co"
+        }
+      ],
+      "destination": "https://converterexpress.net/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.converterexpress.net"
+        }
+      ],
+      "destination": "https://converterexpress.net/:path*",
+      "permanent": true
+    }
+  ]
 }
