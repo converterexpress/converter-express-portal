@@ -90,3 +90,11 @@ Accepted means Resend accepted the message, not confirmed inbox delivery. The UI
 Existing `emailSent` values in workspace JSON are not trusted or used as send status. Email previews come from the same server renderer used for sending. Order status, payments, and details can change after a message is prepared; account links show current data. Invoices are HTML/text with an authenticated invoice link, not PDF attachments.
 
 Checks: `node --test supabase-app/tests/order-email.test.mjs`, PostgreSQL outbox/RLS/lock tests in `email-database.mjs`, and the mocked UI in `order-email-browser.cjs`. One authorized `[TEST] Converter Express order email` was accepted by Resend for the owner, without creating a test order or sending to customers.
+
+### Production build and legal review
+
+Run `node scripts/build-static.cjs` before deployment. The build removes local preview persistence code and rejects obsolete payment or legal copy before writing `dist/`.
+
+Before launch, have qualified counsel review the Terms of Service and Privacy Policy for the business, its jurisdictions, return policy, and data practices. The customer-facing pages contain operating copy and do not display an internal draft warning.
+
+Apply payment and quote-email migrations before deploying the matching Edge Functions, then deploy the static frontend last. Keep payments disabled until those steps and their hosted grant checks pass. The full sequence, smoke checks, monitoring, and rollback procedure are in `docs/PAYMENT_RELEASE_RUNBOOK.md`.

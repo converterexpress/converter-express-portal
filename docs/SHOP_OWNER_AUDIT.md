@@ -399,3 +399,17 @@ Passing tests demonstrate the stated synthetic scenarios. They do not prove real
 - Whop webhook verification/application: `supabase-app/supabase/functions/whop-webhook/index.ts:1-10`
 - Private workspace/staff/audit/storage schema: `supabase-app/supabase/migrations/202610050001_private_workspace.sql:1-62`
 - Quote and purchasing limitations: `supabase-app/crm.js:39-53`
+
+## Appendix C — Remediation status
+
+The confirmed P0 audit bugs were fixed on October 9, 2026:
+
+- Customer online checkout now reserves stock and creates an order only after Whop payment is verified by the signed webhook.
+- Paid cancellation uses staff-reviewed full or partial refund requests, verified provider results, or an explicit retain-payment decision. Refund history is preserved.
+- Quotes now use a durable Resend preview/send/status workflow; customer acceptance or decline remains a separate decision recorded by staff.
+- Terms and Privacy identify Whop, payment-before-confirmation, administrator-reviewed refunds, the effective date, and business contact information. Internal draft warnings were removed from customer pages.
+- The production build removes local preview persistence code and rejects obsolete legal/payment copy.
+- Order CSV export uses the saved payment method and includes paid, refunded, and cancellation state with formula-injection protection.
+- Refresh, duplicate submission, expired reservations, and ambiguous payment outcomes use idempotent recovery or a review state instead of creating duplicate orders or charges.
+
+Post-fix verification passed **88 unit tests** and **20 Chrome browser suites**. The production build and forbidden-copy scan passed. The database-engine script could not run in this workspace because `@electric-sql/pglite` is unavailable. Live Whop settlement/refund, hosted migrations and grants, webhook delivery, and Resend inbox delivery remain staging checks; see `docs/PAYMENT_RELEASE_RUNBOOK.md`.

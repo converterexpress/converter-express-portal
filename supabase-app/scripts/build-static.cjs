@@ -1,0 +1,11 @@
+const fs=require('node:fs');const path=require('node:path');
+const root=path.resolve(__dirname,'..'),out=path.join(root,'dist');fs.rmSync(out,{recursive:true,force:true});fs.mkdirSync(out,{recursive:true});
+let html=fs.readFileSync(path.join(root,'converter-express_1.html'),'utf8');
+const start=html.indexOf('// Local preview persistence. This is not production authentication.');
+const end=html.indexOf('function deliveryTrackingHtml',start);
+if(start<0||end<0)throw Error('Preview-only section boundary changed');
+html=html.slice(0,start)+html.slice(end);
+for(const forbidden of ['Placeholder draft for demo purposes only','Payments are processed by Stripe','Online payments are not connected','saved on this computer'])if(html.includes(forbidden))throw Error('Forbidden production copy: '+forbidden);
+fs.writeFileSync(path.join(out,'index.html'),html);fs.writeFileSync(path.join(out,'converter-express_1.html'),html);
+for(const file of ['auth.js','crm.js','crm.css','config.js','hero-v2.png','logo.png','orders-csv.mjs'])fs.copyFileSync(path.join(root,file),path.join(out,file));
+fs.cpSync(path.join(root,'vendor'),path.join(out,'vendor'),{recursive:true});console.log('Built',out);
