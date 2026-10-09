@@ -182,3 +182,13 @@
 
 /* Embedded invoice payment: keep provider fields visually contained and usable on phones. */
 .whop-invoice-payment{overflow:hidden}.whop-payment-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:28px;padding-bottom:22px;border-bottom:1px solid #dfe3e6}.whop-payment-heading .eyebrow{display:block;margin-bottom:10px}.whop-payment-heading h2{margin:0 0 8px}.whop-payment-heading p{max-width:620px;margin:0;color:#5c6570;font-size:13px;line-height:1.65}.whop-payment-heading>strong{font-size:30px;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}.whop-payment-frame{margin:24px 0 18px;padding:20px;border:1px solid #d8dde1;border-radius:10px;background:#fbfbfa}.whop-payment-element{min-height:120px}.whop-branding-element{margin-top:16px}.whop-pay-button{width:100%;min-height:50px}.payment-checkout-status{min-height:22px;margin:12px 0 0;color:#59616d;font-size:12px;line-height:1.55}.whop-hosted-fallback{margin-top:10px}.whop-hosted-fallback .link-accent{min-height:44px;padding:0;border:0;background:transparent;cursor:pointer;text-decoration:underline;text-underline-offset:3px}@media(max-width:600px){.whop-payment-heading{display:grid;gap:16px}.whop-payment-heading>strong{font-size:27px}.whop-payment-frame{margin:20px -4px 16px;padding:14px}.whop-invoice-payment{padding-left:18px!important;padding-right:18px!important}.whop-payment-element{min-height:100px}}
+
+/* Personalized recommendations need a full section break below fitment. */
+.home-premium .home-recommendations{margin-top:64px;padding-bottom:38px;border-bottom:1px solid #d1d6cb}
+.home-premium .recommendations-head{align-items:flex-end;margin-bottom:24px}
+.home-premium .recommendations-head h2{font-size:clamp(32px,3.3vw,44px);line-height:1.08}
+.home-premium .recommendations-source{color:#68717b;font-size:12px;line-height:1.5;padding-bottom:4px}
+.home-premium .recommendations-label{color:#68717b;font-size:12.5px;line-height:1.5;margin:0 0 12px}
+.home-premium .recommendations-grid{align-items:stretch}
+.home-premium .recommendations-grid .part-card{height:100%}
+@media(max-width:640px){.home-premium .home-recommendations{margin-top:48px;padding-bottom:30px}.home-premium .recommendations-head{align-items:flex-start;gap:12px;margin-bottom:20px}.home-premium .recommendations-source{padding-bottom:0}.home-premium .recommendations-grid{gap:14px}}

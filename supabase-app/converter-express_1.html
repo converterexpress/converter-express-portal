@@ -1447,19 +1447,20 @@ function recommendationsHtml(user){
   const recs = getRecommendationsForUser(user);
   if(!recs) return '';
   return `
-    <div class="section-head">
-      <h2>Recommended for you</h2>
-      <span class="muted" style="font-size:12px;">Based on ${esc(user.shopName)}'s order history</span>
+    <section class="home-recommendations" aria-labelledby="recommendations-title">
+    <div class="section-head recommendations-head">
+      <div><span class="home-section-kicker">YOUR USUAL PARTS</span><h2 id="recommendations-title">Recommended for you</h2></div>
+      <span class="recommendations-source">Based on ${esc(user.shopName)}'s order history</span>
     </div>
     ${recs.reorderParts.length ? `
-      <p class="muted" style="font-size:12.5px;margin-bottom:10px;">Reorder your usual parts</p>
-      <div class="grid" style="margin-bottom:${recs.crossSellParts.length?'32px':'0'};">${recs.reorderParts.map(partCardHtml).join('')}</div>
+      <p class="recommendations-label">Reorder your usual parts</p>
+      <div class="grid recommendations-grid" style="margin-bottom:${recs.crossSellParts.length?'36px':'0'};">${recs.reorderParts.map(partCardHtml).join('')}</div>
     ` : ''}
     ${recs.crossSellParts.length ? `
-      <p class="muted" style="font-size:12.5px;margin-bottom:10px;">You might also need: more from ${esc(recs.topCategory)}</p>
-      <div class="grid">${recs.crossSellParts.map(partCardHtml).join('')}</div>
+      <p class="recommendations-label">You might also need: more from ${esc(recs.topCategory)}</p>
+      <div class="grid recommendations-grid">${recs.crossSellParts.map(partCardHtml).join('')}</div>
     ` : ''}
-    <hr class="hr" style="margin:36px 0;" />
+    </section>
   `;
 }
 
