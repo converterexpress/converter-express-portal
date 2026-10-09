@@ -2,6 +2,7 @@ import {invoiceBalance,checkoutPayload,elementPaymentPayload,paymentElementConfi
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
 import {orderEmail,sendOrderEmail} from '../_shared/order-email.mjs';
 import {project,command,validate,validateAdminRemovals,principal,AppError} from '../_shared/business.mjs';
+import {buildCheckoutReservation,checkoutRequestHash} from '../_shared/checkout.mjs';
 const url=Deno.env.get('SUPABASE_URL')!;
 const secret=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -41,6 +42,24 @@ Deno.serve(async req=>{
    return respond({...project(row.data,user),revision:row.revision,paymentConfigured:!!(Deno.env.get('WHOP_PAYMENTS_ENABLED')==='true'&&Deno.env.get('WHOP_COMPANY_API_KEY')&&Deno.env.get('WHOP_COMPANY_ID')&&Deno.env.get('WHOP_WEBHOOK_SECRET'))});
   }
   if(body.action==='quote'){const row=await rpc('ce_workspace_read');if(!row)throw new AppError('Workspace unavailable',503);const result=command(row.data,user,{...body,action:'order'});return respond({quote:result.result});}
+  if(body.action==='checkout-reserve'){
+   if(Object.keys(body).some(k=>!['action','idempotencyKey','items','fulfillment','job','poNumber','notes','discountCode'].includes(k)))throw new AppError('Invalid checkout request');
+   const row=await rpc('ce_workspace_read'),active=await rpc('ce_checkout_active');
+   const args={idempotencyKey:body.idempotencyKey,items:body.items,fulfillment:body.fulfillment,job:body.job||{},poNumber:body.poNumber||'',notes:body.notes||'',discountCode:body.discountCode||''};
+   const reservation=await buildCheckoutReservation(row.data,user,args,active||[]);
+   const saved=await rpc('ce_checkout_reserve',{rid:reservation.id,uid:user!.id,email:user!.email,body:reservation.quote,hash:reservation.requestHash,reference:reservation.paymentReference,amount:reservation.amountCents,expires:reservation.expiresAt});
+   return respond({reservation:{id:saved.id,status:saved.status,amountCents:saved.amount_cents,expiresAt:saved.expires_at}});
+  }
+  if(body.action==='checkout-status'){
+   if(Object.keys(body).some(k=>!['action','reservationId'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.reservationId||''))throw new AppError('Invalid checkout request');const r=await rpc('ce_checkout_read',{rid:body.reservationId});
+   if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);return respond({reservation:{id:r.id,status:r.status,amountCents:r.amount_cents,expiresAt:r.expires_at,orderId:r.confirmed_order_id||null}});
+  }
+  if(body.action==='checkout-session'){
+   if(Object.keys(body).some(k=>!['action','reservationId'].includes(k)))throw new AppError('Invalid checkout request');const r=await rpc('ce_checkout_read',{rid:body.reservationId});if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);
+   if(['PROCESSING','PAID','REVIEW'].includes(r.status))return respond({status:r.status,orderId:r.confirmed_order_id||null});if(new Date(r.expires_at)<=new Date())throw new AppError('Checkout expired. Review current price and availability.',409);
+   const companyId=Deno.env.get('WHOP_COMPANY_ID');if(Deno.env.get('WHOP_PAYMENTS_ENABLED')!=='true'||!companyId)throw new AppError('Online payments are not available yet.',503);
+   const faux={totalCents:r.amount_cents,amountPaidCents:0,paymentStatus:'UNPAID',cancelled:false};return respond({...paymentElementConfig(faux,companyId),reference:r.payment_reference,reservationId:r.id});
+  }
   if(body.action==='license'){
    const row=await rpc('ce_workspace_read');if(!row)throw new AppError('Workspace unavailable',503);
    if(!user?.admin)throw new AppError('Administrator sign-in required',403);

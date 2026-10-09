@@ -36,6 +36,9 @@ revoke all on table ce_private.payment_events from public,anon,authenticated;
 create function public.ce_checkout_read(rid uuid) returns jsonb language sql security definer set search_path='' as $$
  select to_jsonb(r) from ce_private.checkout_reservations r where id=rid
 $$;
+create function public.ce_checkout_active() returns jsonb language sql security definer set search_path='' as $$
+ select coalesce(jsonb_agg(to_jsonb(r)),'[]'::jsonb) from ce_private.checkout_reservations r where status in ('CREATING','READY','PROCESSING') and expires_at>now()
+$$;
 create function public.ce_checkout_reserve(rid uuid,uid uuid,email text,body jsonb,hash text,reference text,amount bigint,expires timestamptz) returns jsonb language plpgsql security definer set search_path='' as $$
  declare r ce_private.checkout_reservations;
  begin
@@ -77,8 +80,9 @@ create function public.ce_paid_order_finalize(rid uuid,payment jsonb,expected_re
  end
 $$;
 revoke all on function public.ce_checkout_read(uuid) from public,anon,authenticated;
+revoke all on function public.ce_checkout_active() from public,anon,authenticated;
 revoke all on function public.ce_checkout_reserve(uuid,uuid,text,jsonb,text,text,bigint,timestamptz) from public,anon,authenticated;
 revoke all on function public.ce_checkout_transition(uuid,text,text,text,text) from public,anon,authenticated;
 revoke all on function public.ce_checkout_expire() from public,anon,authenticated;
 revoke all on function public.ce_paid_order_finalize(uuid,jsonb,bigint) from public,anon,authenticated;
-grant execute on function public.ce_checkout_read(uuid),public.ce_checkout_reserve(uuid,uuid,text,jsonb,text,text,bigint,timestamptz),public.ce_checkout_transition(uuid,text,text,text,text),public.ce_checkout_expire(),public.ce_paid_order_finalize(uuid,jsonb,bigint) to service_role;
+grant execute on function public.ce_checkout_read(uuid),public.ce_checkout_active(),public.ce_checkout_reserve(uuid,uuid,text,jsonb,text,text,bigint,timestamptz),public.ce_checkout_transition(uuid,text,text,text,text),public.ce_checkout_expire(),public.ce_paid_order_finalize(uuid,jsonb,bigint) to service_role;
