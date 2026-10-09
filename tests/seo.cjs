@@ -8,3 +8,5 @@ for(const p of pages){const html=fs.readFileSync('dist/'+p.slug+'.html','utf8');
 const home=fs.readFileSync('dist/index.html','utf8');assert(!home.includes('Converter Express Demo'));assert(!home.includes('WELCOME100'));assert(!home.includes('$100'));assert(home.includes('Catalytic converters delivered to your shop'));for(const p of pages)assert(home.includes('href="/'+p.slug+'"'));
 assert(fs.readFileSync('dist/robots.txt','utf8').includes('Sitemap: '+origin+'/sitemap.xml'));
 console.log('PASS canonical sitemap URLs, crawlable page content, metadata/schema, homepage links and $50 copy');
+
+const schemas=[...home.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map(m=>JSON.parse(m[1]));const org=schemas.find(x=>x['@type']==='Organization');assert.equal(org.logo.url,origin+'/logo.png');assert.equal(org.telephone.replace(/-/g,''),'+14089178099');assert.equal(fs.readFileSync('dist/logo.png').subarray(1,4).toString(),'PNG');
