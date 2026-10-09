@@ -85,6 +85,66 @@ footer.site.footer-refined{background:#191f23;color:#bac2c7;padding:0;border-top
 @media(min-width:1600px){.hero-shop .hero-product-photo{object-position:center 60%;}.home-premium .hero-shop .hero-inner{min-height:690px;}}
 @media(max-width:900px) and (min-width:641px){.home-premium .hero-shop .hero-inner{padding:56px 28px;min-height:610px;}.home-premium .hero-shop::before{background:linear-gradient(90deg,#080b0f,rgba(8,11,15,.85) 45%,rgba(8,11,15,.1));}.hero-shop .hero-product-photo{object-position:62% center;}}
 @media(max-width:640px){.home-premium .hero-shop .hero-inner{min-height:0;padding:38px 22px 245px;}.home-premium .hero-shop .hero-copy{max-width:100%;}.home-premium .hero-shop h1{font-size:clamp(54px,12vw,72px);margin-bottom:19px;}.home-premium .hero-shop .eyebrow{font-size:9px;letter-spacing:.14em;margin-bottom:22px;}.home-premium .hero-shop .lede{font-size:14px;max-width:360px;line-height:1.75;margin-bottom:23px;}.home-premium .hero-shop .hero-product-photo{inset:auto 0 0;height:260px;object-fit:cover;object-position:right bottom;}.home-premium .hero-shop::before{inset:auto 0 0;height:280px;background:linear-gradient(180deg,#080b0f 0%,rgba(8,11,15,.05) 40%,transparent);}.home-premium .hero-shop .hero-actions .btn{font-size:11px;padding:13px 14px;flex:1 1 135px;}.hero-first-order{margin-top:25px;}.hero-first-order strong{font-size:21px;}.hero-first-order>span{font-size:11px;}.home-premium .hero-shop .hero-note{margin-top:17px;}}
+</style><style>
+/* Ultrawide review: keep all narrower layouts unchanged. */
+@media (min-width:2000px){
+  :root{--wide-content:100%;}
+  .header-inner, .footer-refined .footer-wrap{max-width:var(--wide-content);}
+  .home-premium .home-content{max-width:var(--wide-content);padding-left:40px;padding-right:40px;}
+  .home-premium .hero-shop .hero-inner{max-width:var(--wide-content);margin:0 auto;padding:88px 40px;min-height:850px;}
+  .home-premium .hero-shop .hero-copy{max-width:1000px;}
+  .home-premium .hero-shop h1{font-size:128px;}
+  .home-premium .hero-shop .lede{font-size:19px;max-width:460px;}
+  .home-premium .hero-shop .hero-product-photo{left:50%;right:auto;transform:translateX(-50%);width:100%;object-position:center center;}
+  .home-premium .hero-shop::before{background:linear-gradient(90deg,#080b0f 0%,rgba(8,11,15,.95) 22%,rgba(8,11,15,.65) 40%,transparent 62%,rgba(8,11,15,.45) 88%,#080b0f 100%);}
+  .home-premium .stats-bar{padding:32px max(40px,calc((100vw - var(--wide-content))/2 + 40px));}
+  .header-inner{width:100%;box-sizing:border-box;padding-left:10vw;padding-right:10vw;}
+  .home-premium .home-content{width:100%;box-sizing:border-box;padding-left:10vw;padding-right:10vw;}
+  .home-premium .hero-shop .hero-inner{width:100%;box-sizing:border-box;padding-left:10vw;padding-right:10vw;}
+  .footer-refined .footer-wrap{box-sizing:border-box;padding-left:10vw;padding-right:10vw;}
+  header.site .header-inner{max-width:none;width:100%;padding:24px 10vw;gap:64px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);}
+  header.site .header-inner>a{flex-shrink:0;justify-self:start;}
+  header.site nav.main{gap:clamp(48px,2.5vw,128px);flex-wrap:nowrap;}
+  header.site nav.main a{white-space:nowrap;flex-shrink:0;}
+  header.site .header-right{gap:32px;flex-shrink:0;justify-self:end;}
+  header.site #headerAuth{display:flex;align-items:center;gap:32px;white-space:nowrap;}
+  header.site .cart-link{white-space:nowrap;}
+
+  .header-inner nav.main a{font-size:18px;}
+  .header-inner .btn{font-size:18px;padding:18px 30px;min-height:58px;}
+  .home-premium .hero-actions{gap:28px;}
+  .home-premium .hero-shop .hero-actions .btn{font-size:22px;padding:24px 38px;min-height:74px;}
+  .home-premium .fitment .btn{font-size:18px;padding:18px 30px;min-height:58px;}
+  .home-premium .fitment .field{font-size:18px;min-height:58px;}
+  .home-premium .fitment .field-row{gap:24px;}
+  .home-premium .cta-band .btn{font-size:20px;padding:24px 36px;min-height:70px;}
+  .home-premium .series-arrow{width:44px;height:44px;}
+  body .home-premium .hero-shop .hero-inner{padding-left:10vw;padding-right:10vw;}
+  body .home-premium .home-content{padding-left:10vw;padding-right:10vw;}
+  body .home-premium .stats-bar{padding-left:10vw;padding-right:10vw;}
+  .home-premium .fitment{padding:40px;}
+  .home-premium .series-section{padding:48px;}
+  .home-premium .series-tile{padding:32px;}
+
+  body .page, body .page-banner-inner, body .about-wrap{max-width:none;width:100%;box-sizing:border-box;margin-left:auto;margin-right:auto;padding-left:10vw;padding-right:10vw;}
+  body .page-mid{max-width:1800px;}
+  body .page-narrow{max-width:1200px;}
+  body .page.admin-shell{max-width:none!important;width:80%;padding-left:280px!important;padding-right:40px!important;}
+  body .footer-refined .footer-wrap{max-width:none;width:100%;padding-left:10vw;padding-right:10vw;box-sizing:border-box;}
+  .catalog-series-nav{grid-template-columns:repeat(8,minmax(0,1fr));}
+  .catalog-series-tab{padding:26px 24px;font-size:24px;}
+  .catalog-series-tab small,.catalog-series-tab b{font-size:16px;}
+  .catalog-toolbar{gap:28px;margin-bottom:30px;}
+  .catalog-toolbar .field{height:60px;font-size:18px;}
+  .catalog-results,.catalog-availability,.catalog-toolbar .sort-label{font-size:18px;}
+  .catalog-list-head{font-size:15px;padding:20px 30px;}
+  .catalog-product.part-row{padding:30px;gap:32px;}
+  .catalog-part strong{font-size:32px;}
+  .catalog-series,.catalog-stock,.catalog-price,.catalog-view{font-size:18px;}
+  .catalog-series small{font-size:16px;}
+  .page .btn,.page-banner .btn{font-size:18px;padding:18px 30px;min-height:58px;}
+  .page .field,.page-banner .field{font-size:18px;min-height:58px;}
+}
 </style></head><body>
 <meta charset="utf-8" />
 <title>Converter Express Demo</title>
