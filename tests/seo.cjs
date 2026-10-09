@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs');
-const pages=require('../seo/pages.json'),origin='https://www.converterexpress.co';
+const pages=require('../seo/pages.json'),origin='https://www.converterexpress.net';
 const xml=fs.readFileSync('dist/sitemap.xml','utf8');
 const urls=[...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>m[1]);
 assert.deepEqual(urls,[origin+'/',...pages.map(p=>origin+'/'+p.slug)]);

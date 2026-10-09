@@ -25,3 +25,7 @@ Vercel now serves the Supabase frontend as static files, rather than starting th
 Run `node tests/static-build.cjs` and `node tests/fitment.cjs` to verify the deployment artifact and public lookup. Supabase project `hjxhaxlthpqqktregwvu` is configured with the private schema, clean catalog and deployed API. Owner onboarding, real email delivery, authenticated workflow verification and the remaining release checks are still required before accepting live orders.
 
 `npm start` still runs the original portal locally. The older [deployment guide](README-DEPLOY.md) applies only to that Node portal, not Vercel.
+
+## Primary domain (October 8, 2026)
+
+The primary website address is `https://www.converterexpress.net/`. SEO canonicals, sitemap URLs, branded Auth email links and new order email links use this domain. The email sender remains `accounts@converterexpress.co`, which is the verified sending domain. Supabase allows the new origin while retaining existing origins for compatibility. Vercel redirects the bare `.net` domain to the primary `www.converterexpress.net` host.
