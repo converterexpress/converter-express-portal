@@ -2777,7 +2777,6 @@ function adminHeaderHtml(active){
  accounts:['Shop accounts','Review applications and manage your shop relationships.'],
  orders:['Orders','Manage fulfillment, delivery updates, and customer orders.'],
  invoices:['Invoices','Track balances, record payments, and close out invoices.'],
- revenue:['Revenue & costs','Review sales, product costs, and profit across your business.'],
  products:['Products & inventory','Manage your catalog, pricing, and stock in one place.'],
  discounts:['Discounts','Create and manage offers for your shop customers.'],
  requests:['Returns & warranty','Review shop requests and keep customers updated.'],
@@ -2786,7 +2785,7 @@ function adminHeaderHtml(active){
  return `<div class="admin-shared-header"><header class="admin-overview-head"><div><span class="admin-eyebrow">CONVERTER EXPRESS / ADMIN</span><h1>${title}</h1><p class="muted">${description}</p></div><a class="btn btn-primary" href="#/admin/orders/new">+ Create order</a></header>${adminTabsHtml(active)}</div>`;
 }
 function adminTabsHtml(active){
- const groups=[['Workspace',[['dashboard','Overview'],['accounts','Shop accounts'],['tasks','Follow-ups']]],['Sales & delivery',[['orders','Orders'],['quotes','Quotes'],['invoices','Invoices'],['dispatch','Dispatch'],['requests','Returns & warranty']]],['Catalog & business',[['products','Products & inventory'],['purchasing','Purchasing'],['discounts','Discounts'],['revenue','Revenue'],['settings','Settings']]]];
+ const groups=[['Workspace',[['dashboard','Overview'],['accounts','Shop accounts'],['tasks','Follow-ups']]],['Sales & delivery',[['orders','Orders'],['quotes','Quotes'],['invoices','Invoices'],['dispatch','Dispatch'],['requests','Returns & warranty']]],['Catalog & business',[['products','Products & inventory'],['purchasing','Purchasing'],['discounts','Discounts'],['settings','Settings']]]];
  return `<nav class="admin-shared-tabs" aria-label="Admin sections"><span class="admin-nav-title">WORKSPACE</span>${groups.map(([label,items])=>`<div class="admin-nav-group"><span class="admin-nav-label">${label}</span>${items.map(([key,label])=>`<a href="#/admin/${key}" ${active===key?'aria-current="page"':''} class="pill ${active===key?'active':''}">${label}<span aria-hidden="true">${active===key?'↗':''}</span></a>`).join('')}</div>`).join('')}</nav>`;
 }
 function requireAdmin(){
@@ -3331,6 +3330,7 @@ function renderAdminDashboard(){
         ${!pendingAccts.length&&!outstandingOrders.length&&!pricingPendingCount&&!costMissingCount?'<p class="muted">Nothing waiting for attention.</p>':''}
        </aside></div>
       <section class="admin-pipeline"><div class="admin-section-heading"><h2>Order status</h2><span class="muted">Selected period</span></div><div class="admin-stage-list">${pipeline.map(s=>`<div><span>${esc(s.label)}</span><strong>${s.count}</strong><small>${fmt(s.totalCents)}</small></div>`).join('')}</div><p class="muted admin-pipeline-note">Invoiced is a billing stage; it does not confirm delivery.</p></section>
+      ${overviewProfitHtml(dashboardRangeDays)}
       <h2 style="font-size:18px;margin-top:32px;">Revenue trend</h2>
       <div class="card" id="revenueCard" style="padding:18px;margin-top:12px;">
         ${revenueCardHtml()}
@@ -3865,6 +3865,13 @@ function saveProfitAssumptions(){
   render();
 }
 
+function overviewProfitHtml(days){
+ const {orders,lines}=revenueLineItems(days),known=lines.filter(l=>l.hasCost),missing=lines.length-known.length;
+ const knownRevenue=known.reduce((n,l)=>n+l.revenueCents,0),cost=known.reduce((n,l)=>n+l.costCents,0),fees=orders.reduce((n,o)=>{const e=orderExpenseCents(o);return n+e.merchantFeeCents+e.shippingCostCents;},0),core=coreForfeitureAdjustmentCents(lines),profit=knownRevenue-cost-fees+core;
+ const segments=[{label:'Product cost',valueCents:cost,color:'var(--ash)'},{label:'Fees & shipping',valueCents:fees,color:'#D97706'},{label:'Net profit',valueCents:profit,color:'var(--good-fg)'}],positive=segments.reduce((n,x)=>n+Math.max(0,x.valueCents),0);
+ return `<section class="overview-profit" aria-labelledby="overview-profit-title"><div class="admin-section-heading"><h2 id="overview-profit-title">Cost &amp; profit breakdown</h2><span class="muted">Selected period</span></div><div class="card overview-profit-card"><div class="overview-profit-chart">${donutChartSvg(segments,{size:180,thickness:26,centerLabel:knownRevenue>0?Math.round(profit/knownRevenue*100)+'%':'—',centerSub:'net margin'}).replace('<svg ','<svg role="img" aria-label="Cost, fees, and net profit breakdown" ')}</div><dl class="overview-profit-legend">${segments.map(x=>`<div><dt><i style="background:${x.color}" aria-hidden="true"></i>${x.label}</dt><dd class="${x.valueCents<0?'profit-negative':''}">${fmt(x.valueCents)}</dd><dd class="profit-percent">${x.valueCents<0?'—':positive?Math.round(x.valueCents/positive*100)+'%':'0%'}</dd></div>`).join('')}</dl></div><p class="overview-profit-note">Product cost and profit use saved order-line costs. Fees include processing and actual shipping costs. ${missing?`${missing} sold line${missing===1?' has':'s have'} no cost recorded; profit is incomplete. `:''}${profit<0?'Recorded costs and fees exceed cost-known sales. ':''}${core>0?fmt(core)+' assumed core forfeiture is included. ':''}<a href="#/admin/settings">Manage cost assumptions →</a></p></section>`;
+}
+
 function revenueOverallHtml(m){
   const segments = [
     { label:'Product cost', valueCents:m.productCostCents, color:'var(--ash)' },
@@ -3974,95 +3981,7 @@ function revenueBySaleHtml(orders){
   </div>`;
 }
 
-function renderAdminRevenue(){
-  if(!requireAdmin()) return;
-  const s = state.storeSettings;
-  const { orders, lines } = revenueLineItems(revenueRangeDays);
-
-  const totalRevenueCents = lines.reduce((sum,l)=>sum+l.revenueCents,0);
-  const knownCostLines = lines.filter(l=>l.hasCost);
-  const knownCostRevenueCents = knownCostLines.reduce((sum,l)=>sum+l.revenueCents,0);
-  const productCostCents = knownCostLines.reduce((sum,l)=>sum+l.costCents,0);
-  const productProfitCents = knownCostLines.reduce((sum,l)=>sum+l.profitCents,0);
-
-  const feeCents = orders.reduce((sum,o)=>sum+orderExpenseCents(o).merchantFeeCents,0);
-  const shippingCostCents = orders.reduce((sum,o)=>sum+orderExpenseCents(o).shippingCostCents,0);
-  const coreAdjCents = coreForfeitureAdjustmentCents(lines);
-  const netProfitCents = productProfitCents - feeCents - shippingCostCents + coreAdjCents;
-  const netMarginPct = knownCostRevenueCents>0 ? Math.round(netProfitCents/knownCostRevenueCents*100) : 0;
-  const coveragePct = totalRevenueCents>0 ? Math.round(knownCostRevenueCents/totalRevenueCents*100) : 100;
-  const partsMissingCost = PARTS.filter(p=>p.costCents==null).length;
-
-  const RANGE_OPTIONS = [
-    { days:null, label:'All time' }, { days:30, label:'Last 30 days' },
-    { days:90, label:'Last 90 days' }, { days:365, label:'Last 12 months' },
-  ];
-  const VIEWS = [
-    { id:'overall', label:'Overall' }, { id:'series', label:'By series' },
-    { id:'part', label:'By part' }, { id:'sale', label:'By sale' },
-  ];
-
-  app.innerHTML = `
-    <div class="page admin-shell">
-      ${adminHeaderHtml('revenue')}
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
-        ${RANGE_OPTIONS.map(r=>`<button class="btn ${revenueRangeDays===r.days?'btn-dark':'btn-outline'} btn-sm" onclick="setRevenueRange(${r.days===null?'null':r.days})">${r.label}</button>`).join('')}
-      </div>
-
-      ${partsMissingCost>0 ? `
-        <div class="card" style="padding:14px 16px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
-          <span style="font-size:13px;">${partsMissingCost} part${partsMissingCost===1?'':'s'} still ${partsMissingCost===1?'has':'have'} no cost set${totalRevenueCents>0 ? ` — ${coveragePct}% of this range's revenue has real cost data; the rest shows as "cost not set" below` : ''}.</span>
-          <a href="#/admin/products" class="btn btn-outline btn-sm" style="white-space:nowrap;">Set costs</a>
-        </div>` : ''}
-
-      <div class="card" style="padding:18px;margin-top:24px;">
-        <h3 style="font-size:14px;">Profit assumptions</h3>
-        <p class="muted" style="font-size:12px;margin-top:4px;">Two real-world costs beyond the product cost itself. Both default to 0 until set, so they never quietly change your numbers.</p>
-        <div class="field-row field-group" style="margin-top:12px;">
-          <div><label class="field-label">Actual shipping cost per shipment ($)</label><input class="field" id="paShipping" type="number" min="0" step="0.01" value="${(s.actualShippingCostCents/100).toFixed(2)}" /></div>
-          <div><label class="field-label">Core charge forfeiture rate (%)</label><input class="field" id="paCoreRate" type="number" min="0" max="100" step="1" value="${s.coreForfeitureRatePercent}" /></div>
-        </div>
-        <p class="muted" style="font-size:11.5px;">Shipping cost applies to shipped orders, not pickup. Core charges are refundable deposits; this assumes the given percentage is kept rather than refunded.</p>
-        <button class="btn btn-primary btn-sm" onclick="saveProfitAssumptions()">Save assumptions</button>
-      </div>
-
-      <h2 style="font-size:18px;margin-top:32px;">Where the money went</h2>
-      <div class="grid" style="margin-top:12px;">
-        <div class="card" style="padding:16px;">
-          <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Revenue</div>
-          <div class="display" style="font-size:22px;margin-top:6px;">${fmt(totalRevenueCents)}</div>
-          <div class="muted" style="font-size:12px;margin-top:2px;">${lines.length} line${lines.length===1?'':'s'} sold</div>
-        </div>
-        <div class="card" style="padding:16px;">
-          <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Product cost</div>
-          <div class="display" style="font-size:22px;margin-top:6px;">${fmt(productCostCents)}</div>
-          <div class="muted" style="font-size:12px;margin-top:2px;">${coveragePct}% of revenue has cost set</div>
-        </div>
-        <div class="card" style="padding:16px;">
-          <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Fees + shipping</div>
-          <div class="display" style="font-size:22px;margin-top:6px;">${fmt(feeCents+shippingCostCents)}</div>
-          <div class="muted" style="font-size:12px;margin-top:2px;">${fmt(feeCents)} processing · ${fmt(shippingCostCents)} shipping</div>
-        </div>
-        <div class="card" style="padding:16px;">
-          <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Net profit</div>
-          <div class="display" style="font-size:22px;margin-top:6px;color:${netProfitCents<0?'var(--bad-fg)':'inherit'};">${fmt(netProfitCents)}</div>
-          <div class="muted" style="font-size:12px;margin-top:2px;">${netMarginPct}% margin on cost-known revenue</div>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:32px;">
-        ${VIEWS.map(v=>`<button class="btn ${revenueView===v.id?'btn-dark':'btn-outline'} btn-sm" onclick="setRevenueView('${v.id}')">${v.label}</button>`).join('')}
-      </div>
-      <div style="margin-top:20px;">
-        ${revenueView==='overall' ? revenueOverallHtml({productCostCents, feeCents, shippingCostCents, productProfitCents, netProfitCents, coreAdjCents, knownCostRevenueCents}) : ''}
-        ${revenueView==='series' ? revenueBySeriesHtml(lines) : ''}
-        ${revenueView==='part' ? revenueByPartHtml(lines) : ''}
-        ${revenueView==='sale' ? revenueBySaleHtml(orders) : ''}
-      </div>
-    </div>`;
-  renderHeader();
-}
+function renderAdminRevenue(){if(!requireAdmin())return;history.replaceState(null,'','#/admin/dashboard');renderAdminDashboard();}
 
 // ---------- ADMIN: products — pricing, stock, and content, for every part ----------
 // Edits mutate the same part object every other page reads (byNumber returns
@@ -4325,6 +4244,8 @@ function saveStoreSettings(){
   if(!Number.isSafeInteger(Math.round(shipping*100))||shipping<0||!Number.isFinite(tax)||tax<0||tax>100||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){alert('Enter a valid email, non-negative delivery fee, and tax rate between 0 and 100.');return;}
 
   if(state.user?.role!=='ADMIN')return;
+  const actual=Number(document.getElementById('ssActualShipping').value),coreRate=Number(document.getElementById('ssCoreRate').value);if(!Number.isSafeInteger(Math.round(actual*100))||actual<0||!Number.isFinite(coreRate)||coreRate<0||coreRate>100){alert('Enter a non-negative actual shipping cost and a core rate between 0 and 100.');return;}
+  state.storeSettings.actualShippingCostCents=Math.round(actual*100);state.storeSettings.coreForfeitureRatePercent=coreRate;
   state.storeSettings.phone = document.getElementById('ssPhone').value;
   state.storeSettings.email = document.getElementById('ssEmail').value;
   state.storeSettings.pickupAddress = document.getElementById('ssPickupAddress').value;
@@ -4357,6 +4278,7 @@ function renderAdminSettings(){
         </div>
         <p class="muted" style="font-size:12px;">Shipping applies to orders shipped, not picked up. Tax applies to every order.</p>
       </div>
+      <div class="card" style="padding:20px;margin-top:16px;"><h3 style="font-size:14px;">Profit assumptions</h3><div class="field-row field-group" style="margin-top:12px;"><div><label class="field-label">Actual shipping cost per shipment ($)</label><input class="field" id="ssActualShipping" type="number" min="0" step="0.01" value="${((s.actualShippingCostCents||0)/100).toFixed(2)}" /></div><div><label class="field-label">Core charge forfeiture rate (%)</label><input class="field" id="ssCoreRate" type="number" min="0" max="100" step="1" value="${s.coreForfeitureRatePercent||0}" /></div></div><p class="muted" style="font-size:12px;">Actual shipping cost applies to shipped orders; saved order costs are preserved. Core forfeiture is an estimate for unreturned refundable deposits, not an added customer charge.</p></div>
       <button class="btn btn-primary" style="margin-top:16px;" onclick="saveStoreSettings()">Save settings</button>
       <div id="productSaved" class="muted" style="font-size:12.5px;margin-top:10px;" hidden>Saved ✓</div>
     </div>`;
