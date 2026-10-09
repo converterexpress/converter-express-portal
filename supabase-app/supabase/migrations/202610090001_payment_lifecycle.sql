@@ -72,7 +72,10 @@ create function public.ce_paid_order_finalize(rid uuid,payment jsonb,expected_re
   if (payment->>'id') is null or (payment->>'amount_cents')::bigint<>r.amount_cents then raise exception 'Payment mismatch'; end if;
   select revision into current_revision from ce_private.workspace where id=1 for update;
   if current_revision<>expected_revision then raise exception 'Revision conflict' using errcode='40001'; end if;
-  oid=payment->>'order_id';
+  oid=payment->'order'->>'id';
+  if oid is null or jsonb_typeof(payment->'order')<>'object' then raise exception 'Paid order missing'; end if;
+  update ce_private.workspace set payload=jsonb_set(payload,'{orders}',(payload->'orders')||(payment->'order')),revision=revision+1,updated_at=now() where id=1;
+  insert into ce_private.audit(actor,action,revision) values(r.user_id,'payment-order-confirmed',current_revision+1);
   update ce_private.checkout_reservations set status='PAID',whop_payment_id=payment->>'id',confirmed_order_id=oid,updated_at=now() where id=rid;
   insert into ce_private.payment_events(provider_event_id,event_type,business_reference,payment_id,outcome,payload)
    values(payment->>'event_id','payment.succeeded',oid,payment->>'id','applied',jsonb_build_object('amount_cents',r.amount_cents)) on conflict do nothing;
