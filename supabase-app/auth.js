@@ -21,7 +21,7 @@ window.fetch=async function(input,options){
  return nativeFetch(input,options);
 };
 function clearPrivateState(preserveCart=false){state.user=null;state.accounts=[];state.orders=[];state.crm={quotes:[],tasks:[],purchases:[],inventory:{},activities:[]};state.cart=[];state.discountCodes=[];state.lastOrderId=null;checkoutFulfillment=null;checkoutDiscountCode=null;adminOrderDraft=null;quickOrderLines=[];quoteDraft=[];PARTS.forEach(p=>{p.priceCents=0;p.pricePending=true;p.costCents=null;p.available=null;});sessionStorage.removeItem('ce-preview-user');if(!preserveCart)sessionStorage.removeItem('ce-preview-cart');workspaceReady=false;workspaceSaved='';workspaceConflict=false;renderHeader();}
-function applyRemote(d){
+function applyRemote(d){if(typeof d.paymentConfigured==='boolean')window.ceWhopReady=d.paymentConfigured;
  const previous=state.user?.id;state.user=d.user;
  for(const k of ['accounts','orders','storeSettings','discountCodes'])state[k]=d.data[k];state.crm=d.data.crm;restoreCatalogProducts(d.data.products);for(const p of d.data.products){const local=byNumber(p.partNumber);if(local)Object.assign(local,p);}
  if(previous&&previous!==state.user?.id)state.cart=[];
@@ -112,3 +112,15 @@ deleteManualRecord=async function(kind,id,partNumber,button){
  if(kind==='order'&&location.hash.includes('/orders/'+id))nav('#/admin/orders');renderRoute();
  }catch(e){status.textContent=e.message;}finally{button.disabled=false;}
 };
+
+async function savedAdminAction(body,form,statusSelector){
+ if(!requireAdmin()||commandBusy||workspaceSaving)return false;const status=form.querySelector(statusSelector);const buttons=[...form.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);if(status)status.textContent='Saving…';
+ try{await saveWorkspace();if(workspaceConflict||JSON.stringify(workspaceData())!==workspaceSaved)throw Error('Save pending changes or reload before continuing.');await shopCommand(body);return true;}catch(e){if(status)status.textContent=e.message;return false;}finally{buttons.forEach(b=>b.disabled=false);}
+}
+saveInvoiceDetails=async function(id,form,close=false){if(!form.reportValidity())return;const f=new FormData(form);if(await savedAdminAction({action:'record-payment',orderId:id,amountPaidCents:Math.round(Number(f.get('paid'))*100),method:String(f.get('method')),reference:String(f.get('reference')),dueDate:String(f.get('due')),close},form,'.billing-status'))renderRoute();};
+async function resolveWarranty(orderId,requestId,form){const response=form.elements.response.value.trim();if(!response){form.querySelector('.resolution-status').textContent='Describe how the claim was resolved before closing it.';form.elements.response.focus();return;}if(!confirm('Resolve this request and share the outcome with the shop?'))return;if(await savedAdminAction({action:'resolve-request',orderId,requestId,response},form,'.resolution-status'))renderRoute();}
+setPaymentStatus=function(id,status){if(!requireAdmin()||findOrder(id)?.paymentStatus===status)return;nav('#/orders/'+encodeURIComponent(id));renderOrderDetail(id);document.getElementById('invoicePayment')?.scrollIntoView({block:'start'});};
+
+async function payInvoice(id,button){const status=button.parentElement.querySelector('.payment-checkout-status');button.disabled=true;status.textContent='Preparing secure checkout…';try{const r=await api({action:'payment-checkout',orderId:id});const url=new URL(r.url);if(url.protocol!=='https:'||!(url.hostname==='whop.com'||url.hostname.endsWith('.whop.com')))throw Error('Invalid checkout address');location.assign(url.href);}catch(e){status.textContent=e.message;button.disabled=false;}}
+const originalRequestUpdate=updateServiceRequest;
+updateServiceRequest=function(orderId,id,form){if(form.elements.status.value==='Resolved'&&findOrder(orderId)?.serviceRequests?.find(r=>r.id===id)?.status!=='Resolved')return resolveWarranty(orderId,id,form);return originalRequestUpdate(orderId,id,form);};

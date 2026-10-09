@@ -1,3 +1,4 @@
+import {invoiceBalance,checkoutPayload,safeCheckoutUrl,whopRequest} from '../_shared/whop.mjs';
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
 import {orderEmail,sendOrderEmail} from '../_shared/order-email.mjs';
 import {project,command,validate,validateAdminRemovals,principal,AppError} from '../_shared/business.mjs';
@@ -37,7 +38,7 @@ Deno.serve(async req=>{
   }
   if(body.action==='bootstrap'){
    const row=await rpc('ce_workspace_read');if(!row)throw new AppError('Catalog setup has not been completed',503);
-   return respond({...project(row.data,user),revision:row.revision});
+   return respond({...project(row.data,user),revision:row.revision,paymentConfigured:!!(Deno.env.get('WHOP_PAYMENTS_ENABLED')==='true'&&Deno.env.get('WHOP_COMPANY_API_KEY')&&Deno.env.get('WHOP_COMPANY_ID')&&Deno.env.get('WHOP_WEBHOOK_SECRET'))});
   }
   if(body.action==='quote'){const row=await rpc('ce_workspace_read');if(!row)throw new AppError('Workspace unavailable',503);const result=command(row.data,user,{...body,action:'order'});return respond({quote:result.result});}
   if(body.action==='license'){
@@ -65,6 +66,21 @@ Deno.serve(async req=>{
    if(body.operation==='preview'){const queued=await rpc('ce_email_read',{oid:order.id,mail_kind:body.kind});const mail=queued?.payload||orderEmail(queued?.snapshot||order,body.kind);return respond({subject:mail.subject,html:mail.html,to:mail.to[0]});}
    if(body.operation==='send'){if(order.cancelled)throw new AppError('Cancelled orders cannot be emailed');return respond({email:await sendMail(order.id,body.kind)});}
    return respond({emails:await rpc('ce_email_list',{oid:order.id}),configured:!!Deno.env.get('RESEND_API_KEY')});
+  }
+  if(body.action==='payment-checkout'){
+   if(Object.keys(body).some(k=>!['action','orderId'].includes(k)))throw new AppError('Invalid payment request');
+   const key=Deno.env.get('WHOP_COMPANY_API_KEY'),companyId=Deno.env.get('WHOP_COMPANY_ID');if(Deno.env.get('WHOP_PAYMENTS_ENABLED')!=='true'||!key||!companyId||!Deno.env.get('WHOP_WEBHOOK_SECRET'))throw new AppError('Online payments are not available yet. Please contact us.',503);
+   if(!user)throw new AppError('Sign in to pay your invoice',401);
+   const row=await rpc('ce_workspace_read'),o=row?.data.orders.find((o:any)=>o.id===body.orderId);
+   if(!o||!user.admin&&(!row.data.accounts.some((a:any)=>a.id===user.id&&a.status==='APPROVED')||o.shopEmail.toLowerCase()!==user.email.toLowerCase()))throw new AppError('Invoice not found',404);
+   const {paid,balance}=invoiceBalance(o);if(o.paymentReview)throw new AppError('Please contact us to reconcile this invoice',409);
+   if(o.paymentCheckout?.status==='ready'&&o.paymentCheckout.amountCents===balance&&o.paymentCheckout.beforePaidCents===paid)return respond({url:safeCheckoutUrl(o.paymentCheckout.url)});
+   if(o.paymentCheckout)throw new AppError('A checkout is already recorded for this invoice. Please contact us before starting another.',409);
+   const reference=crypto.randomUUID();o.paymentCheckout={reference,amountCents:balance,beforePaidCents:paid,status:'creating',createdAt:new Date().toISOString(),actorId:user.id};
+   await rpc('ce_workspace_commit',{expected:row.revision,body:row.data,actor:user.id,event:'payment-checkout-reserve'});
+   const checkout=await whopRequest('checkout_configurations',key,checkoutPayload(o,companyId,reference));if(!/^ch_[A-Za-z0-9]+$/.test(checkout.id||'')||checkout.account_id!==companyId)throw new AppError('Whop returned an invalid checkout',502);const checkoutUrl=safeCheckoutUrl(checkout.purchase_url);
+   for(let attempt=0;attempt<4;attempt++){const saved=await rpc('ce_workspace_read'),current=saved.data.orders.find((x:any)=>x.id===o.id);if(current?.paymentCheckout?.reference!==reference)throw new AppError('Invoice changed during payment setup',409);current.paymentCheckout={...current.paymentCheckout,id:checkout.id,url:checkoutUrl,status:'ready'};try{await rpc('ce_workspace_commit',{expected:saved.revision,body:saved.data,actor:user.id,event:'payment-checkout-ready'});return respond({url:checkoutUrl});}catch(e){if(!(e instanceof AppError)||e.status!==409||attempt===3)throw e;}}
+   throw new AppError('Payment setup could not be saved. Please contact us.',503);
   }
   if(body.action==='admin-save'){
    if(!user?.admin)throw new AppError('Administrator sign-in required',403);

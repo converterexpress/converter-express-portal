@@ -50,3 +50,6 @@ content_path = "./supabase/templates/password_changed.html"
 enabled = true
 subject = "Your Converter Express email changed"
 content_path = "./supabase/templates/email_changed.html"
+
+[functions.whop-webhook]
+verify_jwt = false

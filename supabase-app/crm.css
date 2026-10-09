@@ -167,3 +167,7 @@
 }
 
 .manual-delete-control{display:inline-flex;flex-direction:column;gap:6px;max-width:100%;vertical-align:middle}.btn-delete{color:#a52b21;border-color:#d9a39d}.manual-delete-status{font-size:12px;line-height:1.5;color:#a52b21;white-space:normal}.manual-delete-status:empty{display:none}@media(max-width:600px){.btn-delete{min-height:44px}.manual-delete-control{margin-top:6px}}
+
+.hero-phone{display:inline-block;color:#fff;font-size:16px;font-weight:650;margin-top:20px;text-underline-offset:5px}.home-part-search{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:28px;padding:28px 0 36px}.home-part-search h2{font-size:30px;margin:10px 0}.home-part-search p{color:#68717d;font-size:14px}.home-part-search form{display:flex;gap:10px}.home-part-search .field{min-width:0}.billing-status,.resolution-status{margin-top:14px;color:#a63620}.invoice-payment-summary{padding:12px 0}@media(max-width:650px){.home-part-search{grid-template-columns:1fr;gap:18px}.home-part-search form{flex-direction:column}.home-part-search button{min-height:44px}.hero-phone{font-size:15px}}
+
+.catalog-stock{display:block;min-width:0}.catalog-stock>i{display:inline-block;margin-right:6px}.catalog-stock small{max-width:200px}.fitment-buy>small{max-width:230px;line-height:1.5;color:#68717e}@media(max-width:600px){.catalog-stock{max-width:145px;text-align:right}.catalog-stock small{font-size:11px}.footer-service p{max-width:32ch}}
