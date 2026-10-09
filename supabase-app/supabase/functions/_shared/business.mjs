@@ -21,7 +21,7 @@ function customerOrder(o){const result=pick(o,orderKeys);result.lines=(o.lines||
 export function project(data,user){
  if(user?.admin){assertAdmin(user);return {user:{id:user.id,email:user.email,role:'ADMIN',status:'APPROVED',shopName:'Converter Express'},data:copy(data)};}
  const a=user&&data.accounts.find(a=>a.id===user.id&&sameEmail(a.email,user.email));const approved=a?.status==='APPROVED';
- const products=data.products.map(p=>{const price=approved?(a.priceOverrides?.[p.partNumber]??p.priceCents):0;return {...pick(p,['partNumber','name','category','description']),priceCents:price,pricePending:!approved||(a.priceOverrides?.[p.partNumber]==null&&p.pricePending),costCents:null,inStock:approved&&available(data,p.partNumber)>0,stockKnown:approved&&available(data,p.partNumber)!==null,available:approved?available(data,p.partNumber):null};});
+ const products=data.products.map(p=>{const price=approved?(a.priceOverrides?.[p.partNumber]??p.priceCents):0;return {...pick(p,['partNumber','name','category','description']),priceCents:price,pricePending:!approved||(a.priceOverrides?.[p.partNumber]==null&&p.pricePending),costCents:null,inStock:available(data,p.partNumber)>0,stockKnown:available(data,p.partNumber)!==null,available:approved?available(data,p.partNumber):null};});
  return {user:a?pick(a,accountKeys):user?{id:user.id,email:user.email,role:'CUSTOMER',status:'APPLICATION_REQUIRED'}:null,data:{accounts:a?[pick(a,accountKeys)]:[],orders:approved?data.orders.filter(o=>sameEmail(o.shopEmail,a.email)).map(customerOrder):[],products,storeSettings:pick(data.storeSettings,publicSettings),discountCodes:[],crm:emptyCrm()}};
 }
 export function validate(data){

@@ -4489,12 +4489,15 @@ function enhanceFitmentPickers(form){
  const removed=new MutationObserver(()=>{if(!form.isConnected){cleanups.forEach(fn=>fn());removed.disconnect();}});removed.observe(document.getElementById('app'),{childList:true});
 }
 
+function fitmentCatalogMatch(r){const part=PARTS.find(p=>String(p.partNumber)===String(r.series_model));return part&&r.manufacturer_name==='Converter Unlimited, Inc.'&&(String(part.description||'').match(/D-\d+(?:-\d+)?/g)||[]).includes(r.executive_order)?part:null;}
+function fitmentHasStock(part){return !!part&&(state.user?.role==='ADMIN'?crmAvailable(part.partNumber)>0:part.stockKnown===true&&part.inStock===true);}
+function rankFitmentResults(rows){const rank=r=>{const p=fitmentCatalogMatch(r);return p?(fitmentHasStock(p)?0:1):2;};return rows.slice().sort((a,b)=>rank(a)-rank(b));}
 const fitmentFilterCache=new Map();
 function initFitment(){
  const form=document.getElementById('fitment-form');if(!form)return;
  const keys=['year','make','model','engine_size','test_group'], arrays=['years','makes','models','engine_sizes','test_groups'];
  const status=document.getElementById('fitment-status'),results=document.getElementById('fitment-results'),more=document.getElementById('fitment-more'),submit=form.querySelector('[type=submit]');
- let epoch=0,controller=null,page=1,query=null;
+ let epoch=0,controller=null,page=1,query=null,ranked=[],shown=0,batchSize=20;
  const values=()=>Object.fromEntries(keys.map(k=>[k,form.elements[k].value]).filter(([,v])=>v));
  const alive=()=>form.isConnected;
  async function request(path,params,signal){
@@ -4528,8 +4531,7 @@ function initFitment(){
   }catch(e){if(e.name==='AbortError'||version!==epoch||!alive())return;keys.forEach(k=>delete form.elements[k].dataset.loading);status.textContent='Vehicle lookup is unavailable. Clear selections to retry, or try again later.';}
  }
  function row(r){
-  const part=PARTS.find(p=>String(p.partNumber)===String(r.series_model));
-  const matched=part&&r.manufacturer_name==='Converter Unlimited, Inc.'&&(part.description.match(/D-\d+(?:-\d+)?/g)||[]).includes(r.executive_order);
+  const part=fitmentCatalogMatch(r),matched=!!part;
   let source='';try{const u=new URL(r.eo_document_url);if(u.protocol==='https:'&&(u.hostname==='ww2.arb.ca.gov'||u.hostname.endsWith('.arb.ca.gov')))source=`<a href="${esc(u.href)}" target="_blank" rel="noopener">View approval document ↗</a>`;}catch{}
   const value=v=>esc(String(v==null||v===''?'Not provided':v));
   return `<article class="fitment-result">
@@ -4538,7 +4540,7 @@ function initFitment(){
         <div class="fitment-part-title"><h3>Part ${esc(String(r.series_model))}</h3><span class="fitment-type">${value(r.converter_type)}</span></div>
         <p class="fitment-vehicle">${esc(r.year_range)} ${esc(r.make)} ${esc(r.model)}</p>
       </div>
-      <div class="fitment-buy">${matched?`<span>${part.inStock===false?'Backorder':'Available in our catalog'}</span><a class="btn btn-dark" href="#/catalog/${encodeURIComponent(part.partNumber)}">View part <span aria-hidden="true">→</span></a>`:'<span>Not matched to our catalog</span>'}</div>
+      <div class="fitment-buy">${matched?`<span>${fitmentHasStock(part)?'In stock · Compatible catalog match':(state.user?.role==='ADMIN'?crmAvailable(part.partNumber)===null:!part.stockKnown)?'Catalog match · Stock not confirmed':'Catalog match · Out of stock'}</span><a class="btn btn-dark" href="#/catalog/${encodeURIComponent(part.partNumber)}">View part <span aria-hidden="true">→</span></a>`:'<span>Not matched to our catalog</span>'}</div>
     </div>
     <dl class="fitment-key-details">${[['Converter position',r.converter_location],['Emissions test group',r.test_group],['CARB executive order',r.executive_order]].map(([label,val])=>`<div><dt>${label}</dt><dd>${value(val)}</dd></div>`).join('')}</dl>
     <details class="fitment-technical"><summary>Application details &amp; approval</summary><div class="fitment-technical-body"><dl>${[['Application',r.application_type],['Certification',r.cert_level],['Vehicle class',r.vehicle_class],['Total vehicle converters',r.quantity]].map(([label,val])=>`<div><dt>${label}</dt><dd>${value(val)}</dd></div>`).join('')}</dl>${source}</div></details>
@@ -4546,9 +4548,11 @@ function initFitment(){
   </article>`;
  }
  async function search(append=false){
-  if(!append){if(!ready())return;query=values();page=1;results.innerHTML='';}
+  if(append){results.insertAdjacentHTML('beforeend',ranked.slice(shown,shown+batchSize).map(row).join(''));shown=Math.min(shown+batchSize,ranked.length);more.hidden=shown>=ranked.length;return;}
+  if(!ready())return;query=values();page=1;ranked=[];shown=0;results.innerHTML='';
   const version=++epoch;controller?.abort();controller=new AbortController();submit.disabled=true;more.hidden=true;status.textContent='Checking live applications…';
-  try{const d=await request('search',{...query,page},controller.signal);if(version!==epoch||!alive())return;if(!Array.isArray(d.results)||!Number.isInteger(d.count))throw Error('Invalid response');results.insertAdjacentHTML('beforeend',d.results.map(row).join(''));status.textContent=d.count?`${d.count} listed application${d.count===1?'':'s'}. ${query.test_group?'Match the converter position and application details before ordering.':'Results cover all test groups. Match yours before choosing a part.'}`:'No applications returned for these selections. Check your vehicle details and try again.';more.hidden=!d.next;more.onclick=()=>{page++;search(true);};
+  try{let d=await request('search',{...query,page},controller.signal);if(version!==epoch||!alive())return;const count=d.count,all=[...d.results],seen=new Set(all.map(r=>r.id));batchSize=Math.max(1,d.results.length);while(d.next){if(page>=100)throw Error('Too many application pages');d=await request('search',{...query,page:++page},controller.signal);if(version!==epoch||!alive())return;if(d.count!==count)throw Error('Applications changed during lookup');let added=0;for(const r of d.results)if(!seen.has(r.id)){seen.add(r.id);all.push(r);added++;}if(!added)throw Error('Repeated application page');}if(all.length!==count)throw Error('Incomplete applications');ranked=rankFitmentResults(all);shown=Math.min(batchSize,ranked.length);results.innerHTML=ranked.slice(0,shown).map(row).join('');status.textContent=count?`${count} listed application${count===1?'':'s'}. In-stock compatible catalog matches appear first. ${query.test_group?'Match the converter position and application details before ordering.':'Results cover all test groups. Match yours before choosing a part.'}`:'No applications returned for these selections. Check your vehicle details and try again.';more.hidden=shown>=ranked.length;more.onclick=()=>search(true);
+
   }catch(e){if(e.name==='AbortError'||version!==epoch||!alive())return;status.textContent='The lookup could not be completed. Please try again later. No fitment has been confirmed.';if(append){page--;more.hidden=false;}}
   finally{if(version===epoch&&alive())submit.disabled=!ready();}
  }
