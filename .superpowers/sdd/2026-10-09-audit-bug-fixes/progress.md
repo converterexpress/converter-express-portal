@@ -12,3 +12,4 @@ Task 4: complete (commits a1f7130..3727161, tests: /Users/khaledwahby/.cache/cod
 Task 5: Ruling: Whop official refund documentation provides Dashboard/Profile/Resolution Center refund operations but no documented refund API endpoint — implement admin-reviewed full/partial request plus verified reconciliation, never fabricate an API call — cost if wrong: an available private/new API could later reduce one manual admin step.
 Task 5: complete (tests: node --test supabase-app/tests/refunds.test.mjs supabase-app/tests/customer-updates.test.mjs supabase-app/tests/security.test.mjs → 30 passed)
 Task 6: complete (tests: quote-email.test.mjs + order-email.test.mjs → 11 passed; quote-email-browser.cjs → PASS)
+Task 7: complete (tests: production-copy.test.mjs + orders-csv.test.mjs → 4 passed; legal-browser.cjs → PASS; static build completed and forbidden-copy scan was clean)
