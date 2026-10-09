@@ -4226,6 +4226,12 @@ function renderAdminProductEdit(partNumber){
         <button class="btn btn-primary btn-sm" onclick="saveProductCost('${p.partNumber}')">Save cost</button>
       </div>
       ${productStockPanel(p)}
+      <section class="card" style="padding:20px;margin-top:20px;border-color:#e7b6aa;">
+        <h3 style="font-size:16px;">Delete this part</h3>
+        <p class="muted" style="margin:10px 0 16px;">Remove this part from the catalog and inventory. Parts with stock on hand or linked orders, quotes, or purchase orders cannot be deleted.</p>
+        <button class="btn btn-outline" style="color:#ad341b;border-color:#ad341b;" onclick="deleteCatalogPart('${p.partNumber}')">Delete part</button>
+        <p id="productDeleteStatus" role="status" style="margin-top:12px;"></p>
+      </section>
       <div id="productSaved" class="muted" style="font-size:12.5px;margin-top:10px;" hidden>Saved ✓</div>
     </div>`;
   renderHeader();

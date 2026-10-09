@@ -1,6 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
 import {orderEmail,sendOrderEmail} from '../_shared/order-email.mjs';
-import {project,command,validate,principal,AppError} from '../_shared/business.mjs';
+import {project,command,validate,validateProductRemovals,principal,AppError} from '../_shared/business.mjs';
 const url=Deno.env.get('SUPABASE_URL')!;
 const secret=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -70,6 +70,7 @@ Deno.serve(async req=>{
    if(!user?.admin)throw new AppError('Administrator sign-in required',403);
    validate(body.data);
    const row=await rpc('ce_workspace_read');if(!row||row.revision!==body.revision)throw new AppError('Another change was saved. Reload and try again.',409);
+   validateProductRemovals(row.data,body.data);
    // Business edits never reassign ownership or delete an authenticated shop.
    if(row.data.accounts.some((a:any)=>!body.data.accounts.some((b:any)=>b.id===a.id&&b.email===a.email))||body.data.accounts.some((a:any)=>!row.data.accounts.some((b:any)=>b.id===a.id)))throw new AppError('Account identity cannot be edited through a workspace save');
    const revision=await rpc('ce_workspace_commit',{expected:body.revision,body:body.data,actor:user.id,event:'admin-save'});const added=body.data.orders.filter((o:any)=>!o.cancelled&&!row.data.orders.some((old:any)=>old.id===o.id));const emails=await Promise.all(added.slice(0,3).map(async(o:any)=>({orderId:o.id,...await sendMail(o.id,'confirmation')})));return respond({revision,emails});
