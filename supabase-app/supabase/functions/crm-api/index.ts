@@ -1,6 +1,7 @@
 import {invoiceBalance,checkoutPayload,elementPaymentPayload,paymentElementConfig,safeCheckoutUrl,whopRequest,whopPaymentRequest} from '../_shared/whop.mjs';
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
 import {orderEmail,sendOrderEmail} from '../_shared/order-email.mjs';
+import {quoteEmail,sendQuoteEmail} from '../_shared/quote-email.mjs';
 import {project,command,validate,validateAdminRemovals,principal,AppError} from '../_shared/business.mjs';
 import {buildCheckoutReservation,checkoutRequestHash} from '../_shared/checkout.mjs';
 const url=Deno.env.get('SUPABASE_URL')!;
@@ -85,6 +86,14 @@ Deno.serve(async req=>{
    if(body.operation==='preview'){const queued=await rpc('ce_email_read',{oid:order.id,mail_kind:body.kind});const mail=queued?.payload||orderEmail(queued?.snapshot||order,body.kind);return respond({subject:mail.subject,html:mail.html,to:mail.to[0]});}
    if(body.operation==='send'){if(order.cancelled)throw new AppError('Cancelled orders cannot be emailed');return respond({email:await sendMail(order.id,body.kind)});}
    return respond({emails:await rpc('ce_email_list',{oid:order.id}),configured:!!Deno.env.get('RESEND_API_KEY')});
+  }
+  if(body.action==='quote-email'){
+   if(!user?.admin)throw new AppError('Administrator sign-in required',403);
+   if(Object.keys(body).some(k=>!['action','quoteId','operation'].includes(k))||!['preview','send','status'].includes(body.operation)||typeof body.quoteId!=='string')throw new AppError('Invalid quote email request');
+   const prepared=await rpc('ce_quote_email_prepare',{qid:body.quoteId});if(!prepared)throw new AppError('Quote not found',404);
+   if(body.operation==='preview'){const mail=prepared.payload||quoteEmail(prepared.snapshot.quote,prepared.snapshot.account);return respond({subject:mail.subject,html:mail.html,to:mail.to[0]});}
+   if(body.operation==='status')return respond({email:{status:prepared.status,issue:prepared.issue,updatedAt:prepared.updated_at,providerId:prepared.provider_id},configured:!!Deno.env.get('RESEND_API_KEY')});
+   return respond({email:await sendQuoteEmail({rpc,apiKey:Deno.env.get('RESEND_API_KEY'),quoteId:body.quoteId})});
   }
   if(body.action==='payment-checkout'){
    if(Object.keys(body).some(k=>!['action','orderId'].includes(k)))throw new AppError('Invalid payment request');
