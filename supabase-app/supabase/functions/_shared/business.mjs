@@ -39,10 +39,25 @@ export function validate(data){
 }
 function job(value={}){exact(value,['reference','vehicle','vin']);const r={reference:str(value.reference||'',80),vehicle:str(value.vehicle||'',160),vin:str(value.vin||'',17).toUpperCase()};if(r.vin&&!/^[A-HJ-NPR-Z0-9]{17}$/.test(r.vin))fail('Invalid VIN');return r;}
 function ownedOrder(data,a,id){const o=data.orders.find(o=>o.id===id&&sameEmail(o.shopEmail,a.email));if(!o)fail('Order not found',404);return o;}
+function assertProductRemovable(data,num){
+ if((data.crm?.inventory?.[num]?.onHand??0)>0)fail('This part has stock on hand. Reconcile its stock count before deleting.',409);
+ const references=[['orders',data.orders],['quotes',data.crm?.quotes],['purchase orders',data.crm?.purchases]];
+ for(const [label,records] of references)if((records||[]).some(r=>(r.lines||[]).some(l=>(l.partId||l.partNumber)===num)))fail('This part is linked to '+label+' and cannot be deleted. Its history must be preserved.',409);
+}
+export function validateProductRemovals(previous,next){
+ const remaining=new Set(next.products.map(p=>p.partNumber));
+ for(const p of previous.products)if(!remaining.has(p.partNumber)){assertProductRemovable(previous,p.partNumber);assertProductRemovable(next,p.partNumber);}
+}
 export function command(source,user,args){
  if(!user)fail('Sign in to continue',401);if(user.admin)assertAdmin(user);
  const data=copy(source);let result;
- if(args.action==='application'){
+ if(args.action==='delete-product'){
+  assertAdmin(user);exact(args,['action','partNumber']);const num=str(args.partNumber,40,true);
+  const p=data.products.find(p=>p.partNumber===num);if(!p)fail('Part not found',404);assertProductRemovable(data,num);
+  data.products=data.products.filter(p=>p.partNumber!==num);delete data.crm.inventory[num];
+  for(const a of data.accounts){if(a.savedParts)a.savedParts=a.savedParts.filter(n=>n!==num);if(a.priceOverrides)delete a.priceOverrides[num];}
+  data.crm.activities.push({id:crypto.randomUUID(),accountId:null,type:'Product',text:'Part '+num+' deleted',at:new Date().toISOString(),actorId:user.id});result={partNumber:num};
+ }else if(args.action==='application'){
   exact(args,['action','fields','licensePath']);exact(args.fields,profileKeys);
   if(data.accounts.some(a=>a.id===user.id||sameEmail(a.email,user.email)))fail('Shop application already exists',409);
   if(!user.email)fail('A verified email is required',403);
