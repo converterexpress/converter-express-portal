@@ -15,3 +15,5 @@ Task 6: complete (tests: quote-email.test.mjs + order-email.test.mjs → 11 pass
 Task 7: complete (tests: production-copy.test.mjs + orders-csv.test.mjs → 4 passed; legal-browser.cjs → PASS; static build completed and forbidden-copy scan was clean)
 Task 8: complete (tests: checkout/payment/finalization/Whop unit suites passed; payment-first-browser.cjs, connected-browser.cjs, and whop-elements-browser.cjs → PASS)
 Task 9: complete (tests: refunds.test.mjs + customer-updates.test.mjs → 11 passed; refund-browser.cjs and invoice-desk-browser.cjs → PASS)
+Task 10: local verification complete (87 unit tests passed before final review; 20 browser suites passed; production build/scan passed). Database-engine script blocked because @electric-sql/pglite is unavailable in the workspace. Live Whop settlement/refund, hosted migrations/grants, webhook delivery, and inbox delivery remain staging checks documented in the runbook.
+Final review: fixed reservation state mismatch (READY vs RESERVED) and routed paid-after-expiry outcomes to REVIEW; re-ran focused payment lifecycle suites successfully.

@@ -13,7 +13,7 @@ export function reservationAvailability(data,reservations,partNumber,now=new Dat
 export async function buildCheckoutReservation(data,user,args,reservations=[],now=new Date()){
  const shadow=structuredClone(data);for(const r of reservations.filter(r=>active(r,now)))shadow.orders.push({id:'reservation-'+r.id,shopEmail:'reserved@example.invalid',cancelled:false,inventoryIssued:false,fulfillmentStage:'AWAITING_PARTS',lines:r.quote.lines});
  const next=command(shadow,user,{...args,action:'order'}),draft=next.result;
- return {id:args.idempotencyKey,userId:user.id,shopEmail:user.email,status:'CREATING',requestHash:await checkoutRequestHash(args),paymentReference:crypto.randomUUID(),amountCents:draft.totalCents,expiresAt:new Date(now.getTime()+15*60*1000).toISOString(),quote:{...draft,id:null,invoiceNumber:null,paymentStatus:null,createdAt:now.toISOString()}};
+ return {id:args.idempotencyKey,userId:user.id,shopEmail:user.email,status:'READY',requestHash:await checkoutRequestHash(args),paymentReference:crypto.randomUUID(),amountCents:draft.totalCents,expiresAt:new Date(now.getTime()+15*60*1000).toISOString(),quote:{...draft,id:null,invoiceNumber:null,paymentStatus:null,createdAt:now.toISOString()}};
 }
 export function buildPaidOrder(reservation,payment,orderId=crypto.randomUUID()){
  if(payment.status!=='paid'||payment.currency!=='usd'||payment.amountCents!==reservation.amountCents)throw new AppError('Payment mismatch',409);

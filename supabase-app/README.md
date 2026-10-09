@@ -96,3 +96,5 @@ Checks: `node --test supabase-app/tests/order-email.test.mjs`, PostgreSQL outbox
 Run `node scripts/build-static.cjs` before deployment. The build removes local preview persistence code and rejects obsolete payment or legal copy before writing `dist/`.
 
 Before launch, have qualified counsel review the Terms of Service and Privacy Policy for the business, its jurisdictions, return policy, and data practices. The customer-facing pages contain operating copy and do not display an internal draft warning.
+
+Apply payment and quote-email migrations before deploying the matching Edge Functions, then deploy the static frontend last. Keep payments disabled until those steps and their hosted grant checks pass. The full sequence, smoke checks, monitoring, and rollback procedure are in `docs/PAYMENT_RELEASE_RUNBOOK.md`.

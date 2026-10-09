@@ -43,7 +43,7 @@ create function public.ce_checkout_reserve(rid uuid,uid uuid,email text,body jso
  declare r ce_private.checkout_reservations;
  begin
   insert into ce_private.checkout_reservations(id,user_id,shop_email,status,quote,request_hash,payment_reference,amount_cents,expires_at)
-  values(rid,uid,lower(email),'CREATING',body,hash,reference,amount,expires)
+  values(rid,uid,lower(email),'READY',body,hash,reference,amount,expires)
   on conflict(id) do nothing;
   select * into r from ce_private.checkout_reservations where id=rid for update;
   if r.user_id<>uid or r.request_hash<>hash then raise exception 'Checkout request changed' using errcode='22023'; end if;
