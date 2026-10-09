@@ -1,4 +1,4 @@
-import {invoiceBalance,checkoutPayload,elementPaymentPayload,paymentElementConfig,safeCheckoutUrl,whopRequest,whopPaymentRequest} from '../_shared/whop.mjs';
+import {invoiceBalance,checkoutPayload,elementPaymentPayload,reservationPaymentPayload,paymentElementConfig,safeCheckoutUrl,whopRequest,whopPaymentRequest} from '../_shared/whop.mjs';
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
 import {orderEmail,sendOrderEmail} from '../_shared/order-email.mjs';
 import {quoteEmail,sendQuoteEmail} from '../_shared/quote-email.mjs';
@@ -59,7 +59,15 @@ Deno.serve(async req=>{
    if(Object.keys(body).some(k=>!['action','reservationId'].includes(k)))throw new AppError('Invalid checkout request');const r=await rpc('ce_checkout_read',{rid:body.reservationId});if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);
    if(['PROCESSING','PAID','REVIEW'].includes(r.status))return respond({status:r.status,orderId:r.confirmed_order_id||null});if(new Date(r.expires_at)<=new Date())throw new AppError('Checkout expired. Review current price and availability.',409);
    const companyId=Deno.env.get('WHOP_COMPANY_ID');if(Deno.env.get('WHOP_PAYMENTS_ENABLED')!=='true'||!companyId)throw new AppError('Online payments are not available yet.',503);
-   const faux={totalCents:r.amount_cents,amountPaidCents:0,paymentStatus:'UNPAID',cancelled:false};return respond({...paymentElementConfig(faux,companyId),reference:r.payment_reference,reservationId:r.id});
+   const account=(await rpc('ce_workspace_read'))?.data.accounts.find((a:any)=>a.id===user!.id),billingDetails={email:user!.email,name:account?.contactName||account?.shopName||'',phone:account?.phone||'',address:{line1:account?.addressLine1||'',line2:account?.addressLine2||'',city:account?.city||'',state:account?.state||'',postal_code:account?.postalCode||'',country:'US'}};
+   const faux={totalCents:r.amount_cents,amountPaidCents:0,paymentStatus:'UNPAID',cancelled:false};return respond({...paymentElementConfig(faux,companyId),reference:r.payment_reference,reservationId:r.id,billingDetails});
+  }
+  if(body.action==='checkout-confirm'){
+   if(Object.keys(body).some(k=>!['action','reservationId','reference','confirmationToken'].includes(k))||!/^ctok_[A-Za-z0-9]+$/.test(body.confirmationToken||'')||typeof body.reference!=='string')throw new AppError('Invalid payment confirmation');
+   const key=Deno.env.get('WHOP_COMPANY_API_KEY'),companyId=Deno.env.get('WHOP_COMPANY_ID');if(Deno.env.get('WHOP_PAYMENTS_ENABLED')!=='true'||!key||!companyId||!Deno.env.get('WHOP_WEBHOOK_SECRET'))throw new AppError('Online payments are not available yet.',503);
+   const r=await rpc('ce_checkout_read',{rid:body.reservationId});if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);if(r.status!=='RESERVED'||r.payment_reference!==body.reference)throw new AppError('This checkout can no longer accept payment. Check its status before trying again.',409);if(new Date(r.expires_at)<=new Date())throw new AppError('Checkout expired. Review current price and availability.',409);
+   const payment=await whopPaymentRequest('payments',key,reservationPaymentPayload(r,companyId,body.confirmationToken,user!.email));if(!/^pay_[A-Za-z0-9]+$/.test(payment.id||'')||payment.account_id!==companyId||typeof payment.client_secret!=='string'||!payment.client_secret.startsWith(payment.id+'_secret_'))throw new AppError('Whop returned an invalid payment',502);
+   const changed=await rpc('ce_checkout_transition',{rid:r.id,expected:'RESERVED',next_state:'PROCESSING',payment_id:payment.id,failure:null});if(!changed)throw new AppError('Checkout changed during payment confirmation. Check its status.',409);return respond({clientSecret:payment.client_secret,status:payment.status||'open'});
   }
   if(body.action==='license'){
    const row=await rpc('ce_workspace_read');if(!row)throw new AppError('Workspace unavailable',503);

@@ -13,3 +13,4 @@ Task 5: Ruling: Whop official refund documentation provides Dashboard/Profile/Re
 Task 5: complete (tests: node --test supabase-app/tests/refunds.test.mjs supabase-app/tests/customer-updates.test.mjs supabase-app/tests/security.test.mjs → 30 passed)
 Task 6: complete (tests: quote-email.test.mjs + order-email.test.mjs → 11 passed; quote-email-browser.cjs → PASS)
 Task 7: complete (tests: production-copy.test.mjs + orders-csv.test.mjs → 4 passed; legal-browser.cjs → PASS; static build completed and forbidden-copy scan was clean)
+Task 8: complete (tests: checkout/payment/finalization/Whop unit suites passed; payment-first-browser.cjs, connected-browser.cjs, and whop-elements-browser.cjs → PASS)
