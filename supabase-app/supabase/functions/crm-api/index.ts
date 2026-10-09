@@ -1,4 +1,4 @@
-import {invoiceBalance,checkoutPayload,safeCheckoutUrl,whopRequest} from '../_shared/whop.mjs';
+import {invoiceBalance,checkoutPayload,elementPaymentPayload,paymentElementConfig,safeCheckoutUrl,whopRequest,whopPaymentRequest} from '../_shared/whop.mjs';
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
 import {orderEmail,sendOrderEmail} from '../_shared/order-email.mjs';
 import {project,command,validate,validateAdminRemovals,principal,AppError} from '../_shared/business.mjs';
@@ -81,6 +81,30 @@ Deno.serve(async req=>{
    const checkout=await whopRequest('checkout_configurations',key,checkoutPayload(o,companyId,reference));if(!/^ch_[A-Za-z0-9]+$/.test(checkout.id||'')||checkout.account_id!==companyId)throw new AppError('Whop returned an invalid checkout',502);const checkoutUrl=safeCheckoutUrl(checkout.purchase_url);
    for(let attempt=0;attempt<4;attempt++){const saved=await rpc('ce_workspace_read'),current=saved.data.orders.find((x:any)=>x.id===o.id);if(current?.paymentCheckout?.reference!==reference)throw new AppError('Invoice changed during payment setup',409);current.paymentCheckout={...current.paymentCheckout,id:checkout.id,url:checkoutUrl,status:'ready'};try{await rpc('ce_workspace_commit',{expected:saved.revision,body:saved.data,actor:user.id,event:'payment-checkout-ready'});return respond({url:checkoutUrl});}catch(e){if(!(e instanceof AppError)||e.status!==409||attempt===3)throw e;}}
    throw new AppError('Payment setup could not be saved. Please contact us.',503);
+  }
+  if(body.action==='payment-session'){
+   if(Object.keys(body).some(k=>!['action','orderId'].includes(k)))throw new AppError('Invalid payment request');
+   const key=Deno.env.get('WHOP_COMPANY_API_KEY'),companyId=Deno.env.get('WHOP_COMPANY_ID');if(Deno.env.get('WHOP_PAYMENTS_ENABLED')!=='true'||!key||!companyId||!Deno.env.get('WHOP_WEBHOOK_SECRET'))throw new AppError('Online payments are not available yet. Please contact us.',503);
+   const row=await rpc('ce_workspace_read'),o=row?.data.orders.find((x:any)=>x.id===body.orderId),account=row?.data.accounts.find((a:any)=>a.id===user!.id);
+   if(!o||!user||!user.admin&&(!account||account.status!=='APPROVED'||o.shopEmail.toLowerCase()!==user.email.toLowerCase()))throw new AppError('Invoice not found',404);
+   const {paid,balance}=invoiceBalance(o);if(o.paymentReview)throw new AppError('Please contact us to reconcile this invoice',409);
+   const billingDetails={email:user.email,name:account?.contactName||account?.shopName||'',phone:account?.phone||'',address:{line1:account?.addressLine1||'',line2:account?.addressLine2||'',city:account?.city||'',state:account?.state||'',postal_code:account?.postalCode||'',country:'US'}};
+   if(o.paymentCheckout?.mode==='element'&&o.paymentCheckout.amountCents===balance&&o.paymentCheckout.beforePaidCents===paid){if(o.paymentCheckout.status==='ready')return respond({...paymentElementConfig(o,companyId),reference:o.paymentCheckout.reference,billingDetails});return respond({status:'processing'});}
+   if(o.paymentCheckout)throw new AppError('A payment is already recorded for this invoice. Please contact us before starting another.',409);
+   const reference=crypto.randomUUID();o.paymentCheckout={reference,amountCents:balance,beforePaidCents:paid,mode:'element',status:'ready',createdAt:new Date().toISOString(),actorId:user.id};
+   await rpc('ce_workspace_commit',{expected:row.revision,body:row.data,actor:user.id,event:'payment-element-reserve'});
+   return respond({...paymentElementConfig(o,companyId),reference,billingDetails});
+  }
+  if(body.action==='payment-confirm'){
+   if(Object.keys(body).some(k=>!['action','orderId','reference','confirmationToken'].includes(k))||!/^ctok_[A-Za-z0-9]+$/.test(body.confirmationToken||'')||typeof body.reference!=='string')throw new AppError('Invalid payment confirmation');
+   const key=Deno.env.get('WHOP_COMPANY_API_KEY'),companyId=Deno.env.get('WHOP_COMPANY_ID');if(Deno.env.get('WHOP_PAYMENTS_ENABLED')!=='true'||!key||!companyId||!Deno.env.get('WHOP_WEBHOOK_SECRET'))throw new AppError('Online payments are not available yet. Please contact us.',503);
+   const row=await rpc('ce_workspace_read'),o=row?.data.orders.find((x:any)=>x.id===body.orderId),account=row?.data.accounts.find((a:any)=>a.id===user!.id),checkout=o?.paymentCheckout;
+   if(!o||!user||!user.admin&&(!account||account.status!=='APPROVED'||o.shopEmail.toLowerCase()!==user.email.toLowerCase()))throw new AppError('Invoice not found',404);
+   const {paid,balance}=invoiceBalance(o);if(o.paymentReview||checkout?.mode!=='element'||checkout.status!=='ready'||checkout.reference!==body.reference||checkout.actorId!==user.id||checkout.amountCents!==balance||checkout.beforePaidCents!==paid)throw new AppError('This payment session is no longer valid. Reload the invoice.',409);
+   const payment=await whopPaymentRequest('payments',key,elementPaymentPayload(o,companyId,checkout.reference,body.confirmationToken,user.email));
+   if(!/^pay_[A-Za-z0-9]+$/.test(payment.id||'')||payment.account_id!==companyId||typeof payment.client_secret!=='string'||payment.client_secret.length>500||!payment.client_secret.startsWith(payment.id+'_secret_'))throw new AppError('Whop returned an invalid payment',502);
+   for(let attempt=0;attempt<4;attempt++){const saved=await rpc('ce_workspace_read'),current=saved.data.orders.find((x:any)=>x.id===o.id);if(current?.paymentCheckout?.reference!==checkout.reference||current.paymentCheckout.status!=='ready')throw new AppError('Invoice changed during payment confirmation',409);current.paymentCheckout={...current.paymentCheckout,id:payment.id,status:'processing',confirmedAt:new Date().toISOString()};try{await rpc('ce_workspace_commit',{expected:saved.revision,body:saved.data,actor:user.id,event:'payment-element-confirm'});return respond({clientSecret:payment.client_secret,status:payment.status||'open'});}catch(e){if(!(e instanceof AppError)||e.status!==409||attempt===3)throw e;}}
+   throw new AppError('Payment confirmation could not be saved. Please contact us.',503);
   }
   if(body.action==='admin-save'){
    if(!user?.admin)throw new AppError('Administrator sign-in required',403);
