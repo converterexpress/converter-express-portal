@@ -99,3 +99,16 @@ deleteCatalogPart=async function(num){
   await shopCommand({action:'delete-product',partNumber:num});state.cart=state.cart.filter(l=>l.partId!==num);nav('#/admin/products');renderAdminProducts();
  }catch(e){status.textContent=e.message;}finally{button.disabled=false;}
 };
+
+
+deleteManualRecord=async function(kind,id,partNumber,button){
+ if(!requireAdmin())return;const status=button.parentElement.querySelector('.manual-delete-status');
+ if(workspaceSaving||commandBusy){status.textContent='Please wait for the current change to finish, then try again.';return;}
+ const count=kind==='series'?PARTS.filter(p=>p.category===id).length:0;
+ if(!confirm(button.textContent+'?'+(kind==='series'?' This removes '+id+' and its '+count+' unused parts.':' This permanently removes the saved entry.')))return;
+ button.disabled=true;status.textContent='Deleting…';
+ try{await saveWorkspace();if(workspaceConflict||JSON.stringify(workspaceData())!==workspaceSaved)throw Error('Save pending changes before deleting. Reload if another administrator saved changes.');
+ await shopCommand({action:'delete-record',kind,id,...(kind==='price'?{partNumber}:{})});state.cart=state.cart.filter(l=>byNumber(l.partId));
+ if(kind==='order'&&location.hash.includes('/orders/'+id))nav('#/admin/orders');renderRoute();
+ }catch(e){status.textContent=e.message;}finally{button.disabled=false;}
+};

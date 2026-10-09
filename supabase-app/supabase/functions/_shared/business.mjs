@@ -9,7 +9,7 @@ const str=(v,max=2000,required=false)=>{if(typeof v!=='string'||v.length>max||re
 const copy=x=>structuredClone(x);
 const emptyCrm=()=>({quotes:[],tasks:[],purchases:[],inventory:{},activities:[]});
 const profileKeys=['shopName','contactName','phone','addressLine1','addressLine2','city','state','postalCode','deliveryInstructions'];
-const publicSettings=['phone','email','pickupAddress','pickupAvailable','pickupHours','serviceArea','shippingFlatCents','taxRatePercent','customSeries'];
+const publicSettings=['phone','email','pickupAddress','pickupAvailable','pickupHours','serviceArea','shippingFlatCents','taxRatePercent','customSeries','deletedSeries'];
 const accountKeys=['id','email','role','status',...profileKeys,'savedParts','paymentTermsDays'];
 const orderKeys=['id','invoiceNumber','shopEmail','shopName','subtotalCents','shippingCents','discountCents','discountCodeLabel','taxCents','cardFeeCents','totalCents','job','poNumber','fulfillment','status','fulfillmentStage','paymentStatus','amountPaidCents','dueDate','cancelled','createdAt','emailSent','deliveryDate','deliveryWindow','deliveryNote'];
 const sameEmail=(a,b)=>String(a).trim().toLowerCase()===String(b).trim().toLowerCase();
@@ -31,6 +31,7 @@ export function validate(data){
  for(const [items,key]of [[data.accounts,'id'],[data.accounts,'email'],[data.orders,'id'],[data.products,'partNumber'],[data.discountCodes,'code']]){const values=items.map(x=>str(x[key],200,true).toLowerCase());if(new Set(values).size!==values.length)fail('Duplicate identifiers');}
  if(!obj(data.storeSettings))fail('Invalid settings');for(const k of ['shippingFlatCents','actualShippingCostCents'])if(!int(data.storeSettings[k]??0))fail('Invalid money');for(const k of ['taxRatePercent','coreForfeitureRatePercent'])if(!Number.isFinite(data.storeSettings[k]??0)||(data.storeSettings[k]??0)<0||(data.storeSettings[k]??0)>100)fail('Invalid rate');
  for(const a of data.accounts){if(a.role!=='CUSTOMER'||!['PENDING','APPROVED','REJECTED'].includes(a.status))fail('Invalid account role or status');for(const v of Object.values(a.priceOverrides||{}))if(!int(v,1))fail('Invalid negotiated price');}
+ for(const key of ['customSeries','deletedSeries'])if(data.storeSettings[key]!==undefined&&(!Array.isArray(data.storeSettings[key])||data.storeSettings[key].some(v=>typeof v!=='string'||!v.trim()||v.length>200)))fail('Invalid series');
  for(const p of data.products)if(!/^[A-Za-z0-9_-]{1,40}$/.test(p.partNumber)||!int(p.priceCents)||p.costCents!=null&&!int(p.costCents)||typeof p.pricePending!=='boolean'||typeof p.inStock!=='boolean')fail('Invalid product');
  for(const o of data.orders){if(!Array.isArray(o.lines)||!o.lines.length||o.lines.some(l=>!int(l.quantity,1)||!int(l.priceCents)||l.costCents!=null&&!int(l.costCents)))fail('Invalid order lines');for(const k of ['subtotalCents','shippingCents','discountCents','taxCents','cardFeeCents','merchantFeeCents','totalCents'])if(!int(o[k]))fail('Invalid order total');if(o.lines.reduce((n,l)=>n+l.quantity*l.priceCents,0)!==o.subtotalCents||o.discountCents>o.subtotalCents||o.totalCents!==o.subtotalCents-o.discountCents+o.shippingCents+o.taxCents+o.cardFeeCents)fail('Inconsistent order total');if(o.amountPaidCents!=null&&(!int(o.amountPaidCents)||o.amountPaidCents>o.totalCents))fail('Invalid payment');if(!['PAID','UNPAID','PARTIAL','OVERDUE'].includes(o.paymentStatus)||!['AWAITING_PARTS','PACKAGING','SHIPPED','INVOICED','DELIVERED'].includes(o.fulfillmentStage))fail('Invalid order status');}
  for(const d of data.discountCodes)if(!['PERCENT','AMOUNT'].includes(d.type)||!Number.isFinite(d.value)||d.value<=0||d.type==='PERCENT'&&d.value>100||typeof d.active!=='boolean')fail('Invalid discount');
@@ -48,10 +49,58 @@ export function validateProductRemovals(previous,next){
  const remaining=new Set(next.products.map(p=>p.partNumber));
  for(const p of previous.products)if(!remaining.has(p.partNumber)){assertProductRemovable(previous,p.partNumber);assertProductRemovable(next,p.partNumber);}
 }
+const manualCollections={task:'tasks',quote:'quotes',purchase:'purchases',activity:'activities'};
+function assertManualRecordRemovable(data,kind,id,partNumber){
+ let record;
+ if(kind==='series'){
+  const parts=data.products.filter(p=>p.category===id);if(!parts.length&&!(data.storeSettings.customSeries||[]).includes(id))fail('Series not found',404);
+  for(const p of parts)assertProductRemovable(data,p.partNumber);return parts;
+ }
+ if(manualCollections[kind])record=data.crm[manualCollections[kind]].find(r=>r.id===id);
+ else if(kind==='order')record=data.orders.find(r=>r.id===id);
+ else if(kind==='discount')record=data.discountCodes.find(r=>r.code===id);
+ else if(kind==='price'){record=data.accounts.find(r=>r.id===id);if(!record||!Object.hasOwn(record.priceOverrides||{},partNumber))fail('Shop price not found',404);return record;}
+ else if(kind==='stock'){
+  record=data.crm.inventory[id];if(!record)fail('Stock count not found',404);
+  const reserved=data.orders.some(o=>!o.cancelled&&!o.inventoryIssued&&!['SHIPPED','DELIVERED'].includes(o.fulfillmentStage)&&(o.lines||[]).some(l=>l.partId===id&&l.quantity>0));
+  const incoming=data.crm.purchases.some(p=>p.status==='Open'&&(p.lines||[]).some(l=>l.partNumber===id&&l.quantity>(l.received||0)));
+  if(record.onHand>0||reserved||incoming)fail('This count has physical, reserved, or incoming stock and cannot be deleted.',409);return record;
+ }else fail('Unknown record type');
+ if(!record)fail('Record not found',404);
+ if(kind==='quote'&&(record.orderId||data.orders.some(o=>o.quoteId===id)||data.crm.tasks.some(t=>t.quoteId===id)))fail('This quote is converted or linked to an order or follow-up and cannot be deleted.',409);
+ if(kind==='purchase'&&(record.status==='Received'||(record.lines||[]).some(l=>(l.received||0)>0)))fail('This purchase order has received stock and cannot be deleted. Cancel any remaining quantities instead.',409);
+ if(kind==='activity'&&!['Call','Note','Visit'].includes(record.type))fail('Generated business history cannot be deleted.',409);
+ if(kind==='order'){
+  if(record.channel!=='PHONE')fail('Only manually created phone or walk-in orders can be deleted.',409);
+  if(record.paymentStatus==='PAID'||record.paymentStatus==='PARTIAL'||(record.amountPaidCents||0)>0||record.inventoryIssued||!['AWAITING_PARTS','PACKAGING'].includes(record.fulfillmentStage)||(record.serviceRequests||[]).length||record.quoteId||data.crm.quotes.some(q=>q.orderId===id)||record.emailSent||record.dispatch?.driver||(record.deliveryHistory||[]).length)fail('This order has payment, invoice, delivery, email, or linked history and cannot be deleted. Use Cancel order instead.',409);
+ }
+ return record;
+}
+function removeProducts(data,numbers){
+ const removed=new Set(numbers);data.products=data.products.filter(p=>!removed.has(p.partNumber));for(const n of removed)delete data.crm.inventory[n];
+ for(const a of data.accounts){if(a.savedParts)a.savedParts=a.savedParts.filter(n=>!removed.has(n));if(a.priceOverrides)for(const n of removed)delete a.priceOverrides[n];}
+}
+export function validateAdminRemovals(previous,next){
+ validateProductRemovals(previous,next);
+ for(const [kind,key]of Object.entries(manualCollections))for(const r of previous.crm[key])if(!next.crm[key].some(n=>n.id===r.id)){assertManualRecordRemovable(previous,kind,r.id);}
+ for(const r of previous.orders)if(!next.orders.some(n=>n.id===r.id))assertManualRecordRemovable(previous,'order',r.id);
+ for(const id of Object.keys(previous.crm.inventory))if(!Object.hasOwn(next.crm.inventory,id)&&next.products.some(p=>p.partNumber===id))assertManualRecordRemovable(previous,'stock',id);
+}
 export function command(source,user,args){
  if(!user)fail('Sign in to continue',401);if(user.admin)assertAdmin(user);
  const data=copy(source);let result;
- if(args.action==='delete-product'){
+ if(args.action==='delete-record'){
+  assertAdmin(user);exact(args,['action','kind','id','partNumber']);const kind=str(args.kind,30,true),id=str(args.id,200,true);
+  if(kind!=='price'&&args.partNumber!==undefined)fail('Unexpected fields');const partNumber=kind==='price'?str(args.partNumber,40,true):undefined;
+  const record=assertManualRecordRemovable(data,kind,id,partNumber);
+  if(kind==='series'){removeProducts(data,record.map(p=>p.partNumber));data.storeSettings.customSeries=(data.storeSettings.customSeries||[]).filter(c=>c!==id);data.storeSettings.deletedSeries=[...new Set([...(data.storeSettings.deletedSeries||[]),id])];}
+  else if(kind==='price')delete record.priceOverrides[partNumber];
+  else if(kind==='stock')delete data.crm.inventory[id];
+  else if(kind==='discount')data.discountCodes=data.discountCodes.filter(r=>r.code!==id);
+  else if(kind==='order')data.orders=data.orders.filter(r=>r.id!==id);
+  else data.crm[manualCollections[kind]]=data.crm[manualCollections[kind]].filter(r=>r.id!==id);
+  data.crm.activities.push({id:crypto.randomUUID(),accountId:kind==='price'?id:record.accountId||null,type:'Deletion',text:kind+' '+id+(partNumber?' / '+partNumber:'')+' deleted',at:new Date().toISOString(),actorId:user.id});result={kind,id};
+ }else if(args.action==='delete-product'){
   assertAdmin(user);exact(args,['action','partNumber']);const num=str(args.partNumber,40,true);
   const p=data.products.find(p=>p.partNumber===num);if(!p)fail('Part not found',404);assertProductRemovable(data,num);
   data.products=data.products.filter(p=>p.partNumber!==num);delete data.crm.inventory[num];
