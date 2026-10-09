@@ -1,4 +1,5 @@
 // Pure business rules. Authentication and revision-checked persistence live in the edge handler.
+import {buildRefundRequest,applyVerifiedRefund,refundSummary} from './refunds.mjs';
 export class AppError extends Error { constructor(message,status=400){super(message);this.status=status;} }
 const fail=(message,status=400)=>{throw new AppError(message,status);};
 const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
@@ -11,7 +12,7 @@ const emptyCrm=()=>({quotes:[],tasks:[],purchases:[],inventory:{},activities:[]}
 const profileKeys=['shopName','contactName','phone','addressLine1','addressLine2','city','state','postalCode','deliveryInstructions'];
 const publicSettings=['phone','email','pickupAddress','pickupAvailable','pickupHours','serviceArea','shippingFlatCents','taxRatePercent','customSeries','deletedSeries'];
 const accountKeys=['id','email','role','status',...profileKeys,'savedParts','paymentTermsDays'];
-const orderKeys=['id','invoiceNumber','shopEmail','shopName','subtotalCents','shippingCents','discountCents','discountCodeLabel','taxCents','cardFeeCents','totalCents','job','poNumber','fulfillment','status','fulfillmentStage','paymentStatus','amountPaidCents','dueDate','cancelled','createdAt','emailSent','deliveryDate','deliveryWindow','deliveryNote','paymentMethod','paymentReference','invoiceClosedAt'];
+const orderKeys=['id','invoiceNumber','shopEmail','shopName','subtotalCents','shippingCents','discountCents','discountCodeLabel','taxCents','cardFeeCents','totalCents','job','poNumber','fulfillment','status','fulfillmentStage','paymentStatus','amountPaidCents','dueDate','cancelled','createdAt','emailSent','deliveryDate','deliveryWindow','deliveryNote','paymentMethod','paymentReference','invoiceClosedAt','refunds','cancellationReview','cancelledAt','cancellationReason'];
 const sameEmail=(a,b)=>String(a).trim().toLowerCase()===String(b).trim().toLowerCase();
 export function principal(authUser,staffIds,claims){return authUser?{id:authUser.id,email:authUser.email,admin:staffIds.includes(authUser.id),aal:claims?.aal||'aal1'}:null;}
 function assertAdmin(user){if(!user?.admin)fail('Administrator access required',403);}
@@ -83,7 +84,7 @@ function removeProducts(data,numbers){
  for(const a of data.accounts){if(a.savedParts)a.savedParts=a.savedParts.filter(n=>!removed.has(n));if(a.priceOverrides)for(const n of removed)delete a.priceOverrides[n];}
 }
 export function validateAdminRemovals(previous,next){
- for(const old of previous.orders){const current=next.orders.find(o=>o.id===old.id);if(!current)continue;for(const field of ['paymentCheckout','whopReceipts','paymentReview'])if(JSON.stringify(old[field])!==JSON.stringify(current[field]))fail('Payment processor history cannot be edited through a workspace save',409);if(old.paymentCheckout&&['totalCents','amountPaidCents','paymentStatus','cancelled'].some(k=>old[k]!==current[k]))fail('Reconcile the active Whop checkout before changing this invoice',409);}
+ for(const old of previous.orders){const current=next.orders.find(o=>o.id===old.id);if(!current)continue;for(const field of ['paymentCheckout','whopReceipts','paymentReview','refunds','cancellationReview'])if(JSON.stringify(old[field])!==JSON.stringify(current[field]))fail('Payment processor history cannot be edited through a workspace save',409);if((old.paymentCheckout||(old.refunds||[]).length)&&['totalCents','amountPaidCents','paymentStatus','cancelled'].some(k=>old[k]!==current[k]))fail('Reconcile the active Whop payment before changing this invoice',409);}
  validateProductRemovals(previous,next);
  for(const [kind,key]of Object.entries(manualCollections))for(const r of previous.crm[key])if(!next.crm[key].some(n=>n.id===r.id)){assertManualRecordRemovable(previous,kind,r.id);}
  for(const r of previous.orders)if(!next.orders.some(n=>n.id===r.id))assertManualRecordRemovable(previous,'order',r.id);
@@ -91,7 +92,7 @@ export function validateAdminRemovals(previous,next){
 }
 export function command(source,user,args){
  if(!user)fail('Sign in to continue',401);if(user.admin)assertAdmin(user);
- const data=copy(source);let result;
+ let data=copy(source);let result;
  if(args.action==='record-payment'){
   assertAdmin(user);exact(args,['action','orderId','amountPaidCents','method','reference','dueDate','close']);const o=data.orders.find(o=>o.id===args.orderId);if(!o||o.cancelled)fail('Active invoice not found',404);
   if(o.paymentCheckout||o.paymentReview)fail('Reconcile the active Whop checkout before recording another payment',409);
@@ -118,6 +119,14 @@ export function command(source,user,args){
   data.products=data.products.filter(p=>p.partNumber!==num);delete data.crm.inventory[num];
   for(const a of data.accounts){if(a.savedParts)a.savedParts=a.savedParts.filter(n=>n!==num);if(a.priceOverrides)delete a.priceOverrides[num];}
   data.crm.activities.push({id:crypto.randomUUID(),accountId:null,type:'Product',text:'Part '+num+' deleted',at:new Date().toISOString(),actorId:user.id});result={partNumber:num};
+ }else if(args.action==='request-refund'){
+  assertAdmin(user);exact(args,['action','orderId','amountCents','reason']);const o=data.orders.find(o=>o.id===args.orderId);if(!o||o.cancelled)fail('Active order not found',404);if(o.cancellationReview?.status==='REQUESTED')fail('This cancellation is already awaiting review',409);const request=buildRefundRequest(o,args.amountCents,args.reason,user.id);o.cancellationReview={...request,action:args.amountCents===request.amountCents&&args.amountCents===((o.amountPaidCents??o.totalCents)-(o.refunds||[]).filter(r=>r.status==='succeeded').reduce((n,r)=>n+r.amountCents,0))?'FULL_REFUND':'PARTIAL_REFUND'};data.crm.activities.push({id:crypto.randomUUID(),accountId:null,type:'Refund',text:`${o.invoiceNumber}: refund review requested`,at:request.requestedAt,actorId:user.id});result={orderId:o.id,review:o.cancellationReview};
+ }else if(args.action==='cancel-unpaid-order'){
+  assertAdmin(user);exact(args,['action','orderId','reason']);const o=data.orders.find(o=>o.id===args.orderId);if(!o||o.cancelled)fail('Active order not found',404);if(refundSummary(o).refundableCents>0)fail('A paid order requires refund review before cancellation',409);const reason=str(args.reason,1000,true),at=new Date().toISOString();o.cancelled=true;o.cancelledAt=at;o.cancellationReason=reason;o.cancellationReview={status:'COMPLETED',action:'NO_REFUND',amountCents:0,reviewedBy:user.id,reviewedAt:at};data.crm.activities.push({id:crypto.randomUUID(),accountId:null,type:'Cancellation',text:`${o.invoiceNumber}: cancelled without payment`,at,actorId:user.id});result={orderId:o.id,review:o.cancellationReview};
+ }else if(args.action==='confirm-refund'){
+  assertAdmin(user);exact(args,['action','orderId','refundId','paymentId','amountCents','status','reason']);const o=data.orders.find(o=>o.id===args.orderId);if(!o)fail('Order not found',404);if(o.cancellationReview?.status!=='REQUESTED')fail('A refund review request is required before confirmation',409);const amountCents=args.amountCents;if(amountCents!==o.cancellationReview.amountCents)fail('Verified refund amount does not match the approved request',409);data=applyVerifiedRefund(data,o.id,{id:str(args.refundId,200,true),paymentId:str(args.paymentId,200,true),amountCents,status:str(args.status,40,true),reviewedBy:user.id,reason:str(args.reason,1000,true)});result={orderId:o.id,review:data.orders.find(x=>x.id===o.id).cancellationReview};
+ }else if(args.action==='cancel-without-refund'){
+  assertAdmin(user);exact(args,['action','orderId','reason','confirmation']);const o=data.orders.find(o=>o.id===args.orderId);if(!o||o.cancelled)fail('Active order not found',404);if(args.confirmation!=='RETAIN PAYMENT')fail('Explicit retain-payment confirmation is required',409);const summary=refundSummary(o);if(summary.collectedCents<=0)fail('Use unpaid cancellation when no payment was collected',409);const reason=str(args.reason,1000,true),at=new Date().toISOString();o.cancelled=true;o.cancelledAt=at;o.cancellationReason=reason;o.cancellationReview={status:'COMPLETED',action:'RETAIN_PAYMENT',amountCents:0,retainedCents:summary.retainedCents,reviewedBy:user.id,reviewedAt:at};data.crm.activities.push({id:crypto.randomUUID(),accountId:null,type:'Cancellation',text:`${o.invoiceNumber}: cancelled; ${summary.retainedCents} cents retained`,at,actorId:user.id});result={orderId:o.id,review:o.cancellationReview};
  }else if(args.action==='application'){
   exact(args,['action','fields','licensePath']);exact(args.fields,profileKeys);
   if(data.accounts.some(a=>a.id===user.id||sameEmail(a.email,user.email)))fail('Shop application already exists',409);
