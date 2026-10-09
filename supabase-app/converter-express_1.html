@@ -2776,7 +2776,7 @@ function adminHeaderHtml(active){
  dashboard:['Business overview','Manage orders, support your shops, and keep the catalog ready to sell.'],
  accounts:['Shop accounts','Review applications and manage your shop relationships.'],
  orders:['Orders','Manage fulfillment, delivery updates, and customer orders.'],
- invoices:['Invoices','Review outstanding invoices and payment status.'],
+ invoices:['Invoices','Track balances, record payments, and close out invoices.'],
  revenue:['Revenue & costs','Review sales, product costs, and profit across your business.'],
  products:['Products & inventory','Manage your catalog, pricing, and stock in one place.'],
  discounts:['Discounts','Create and manage offers for your shop customers.'],
@@ -3708,48 +3708,30 @@ function renderAdminOrders(){
   renderHeader();
 }
 
-// ---------- ADMIN: open invoices (unpaid / partial / overdue, oldest first) ----------
+// ---------- ADMIN: invoice desk ----------
+function invoiceOverdue(o){return o.paymentStatus!=='PAID'&&(o.paymentStatus==='OVERDUE'||(o.dueDate&&o.dueDate<new Date().toISOString().slice(0,10)));}
+function invoiceScope(){const p=new URLSearchParams(location.hash.split('?')[1]||'');return ['closed','overdue','partial'].includes(p.get('status'))?p.get('status'):'open';}
+function invoiceScopeOrders(scope){return state.orders.filter(o=>!o.cancelled&&o.paymentStatus&&(scope==='closed'?o.paymentStatus==='PAID':scope==='overdue'?invoiceOverdue(o):scope==='partial'?o.paymentStatus==='PARTIAL':o.paymentStatus!=='PAID'));}
+function clearInvoiceSearch(){document.getElementById('invoiceSearch').value='';updateInvoiceResults();document.getElementById('invoiceSearch').focus();}
+function updateInvoiceResults(){
+ const q=document.getElementById('invoiceSearch')?.value.trim()||'',sort=document.getElementById('invoiceSort')?.value||'oldest',scope=invoiceScope();
+ const params=new URLSearchParams();if(scope!=='open')params.set('status',scope);if(q)params.set('q',q);if(sort!=='oldest')params.set('sort',sort);history.replaceState(null,'','#/admin/invoices'+(params.size?'?'+params:''));
+ document.querySelectorAll('.invoice-tabs a').forEach(a=>{const ps=new URLSearchParams();if(a.dataset.scope!=='open')ps.set('status',a.dataset.scope);if(q)ps.set('q',q);if(sort!=='oldest')ps.set('sort',sort);a.href='#/admin/invoices'+(ps.size?'?'+ps:'');});
+ const all=invoiceScopeOrders(scope),query=q.toLowerCase(),orders=all.filter(o=>[o.invoiceNumber,o.shopName,o.shopEmail,o.poNumber,o.paymentMethod,o.paymentReference].some(v=>String(v||'').toLowerCase().includes(query)));
+ const time=o=>new Date(o.createdAt).getTime()||0;orders.sort((a,b)=>sort==='newest'?time(b)-time(a):sort==='balance'?(scope==='closed'?b.totalCents-a.totalCents:(balanceFor(b)??-1)-(balanceFor(a)??-1))||time(a)-time(b):time(a)-time(b));
+ const label={open:'Open',closed:'Closed',overdue:'Overdue',partial:'Partially paid'}[scope];
+ document.getElementById('invoiceResultHeading').textContent=label+' invoices ('+orders.length+')';document.getElementById('invoiceResultCount').textContent=q?orders.length+' of '+all.length+' match your search':orders.length+' '+(orders.length===1?'invoice':'invoices');
+ document.getElementById('invoiceResults').innerHTML=orders.length?`<div class="invoice-list-head" aria-hidden="true"><span>Invoice / issued</span><span>Shop account</span><span>${scope==='closed'?'Payment recorded':'Due date'}</span><span>${scope==='closed'?'Total paid':'Balance due'}</span><span>Status / actions</span></div><div class="invoice-list">${orders.map(o=>{
+ const paid=o.paymentStatus==='PAID',balance=balanceFor(o),acct=accountForEmail(o.shopEmail),url='#/orders/'+encodeURIComponent(o.id)+'/invoice',overdue=invoiceOverdue(o);
+ return `<article class="invoice-desk-row"><div class="invoice-identity"><a href="${url}">${esc(o.invoiceNumber)}</a><span>Issued ${esc(fmtDate(o.createdAt))}</span>${o.poNumber?`<small>PO ${esc(o.poNumber)}</small>`:''}</div><div class="invoice-shop">${acct?`<a href="#/admin/accounts/${encodeURIComponent(acct.id)}">${esc(o.shopName)}</a>`:`<strong>${esc(o.shopName)}</strong>`}<span>${esc(o.shopEmail)}</span></div><div class="invoice-timing"><span class="invoice-mobile-label">${paid?'Payment recorded':'Due date'}</span>${paid?`<strong>${esc(o.paymentMethod||'Method not recorded')}</strong><span>${o.invoiceClosedAt?'Closed '+esc(fmtDate(o.invoiceClosedAt)):'Paid'}${o.paymentReference?' · '+esc(o.paymentReference):''}</span>`:`<strong class="${overdue?'invoice-late':''}">${o.dueDate?esc(fmtDate(o.dueDate+'T12:00:00')):'No due date'}</strong><span>${overdue?'Needs follow-up':o.paymentStatus==='PARTIAL'?'Payment in progress':'Awaiting payment'}</span>`}</div><div class="invoice-balance"><span class="invoice-mobile-label">${paid?'Total paid':'Balance due'}</span><strong>${paid?fmt(o.totalCents):balance===null?'To confirm':fmt(balance)}</strong><span>${paid?'Balance cleared':'of '+fmt(o.totalCents)+' total'}</span></div><div class="invoice-row-actions">${paymentStatusBadgeHtml(paid?'PAID':overdue?'OVERDUE':o.paymentStatus)}<div><a href="${url}" class="invoice-view">View invoice</a>${!paid?`<a href="${url}" class="btn btn-outline btn-sm">${o.paymentCheckout?'Review payment':'Record payment'}</a>`:''}</div></div></article>`;
+ }).join('')}</div>`:`<div class="invoice-empty"><span class="invoice-empty-mark" aria-hidden="true">↗</span><h3>${q?'No invoices match this search':scope==='closed'?'No closed invoices yet':scope==='overdue'?'No overdue invoices':scope==='partial'?'No partial payments':'You’re all caught up'}</h3><p>${q?'Try a shop name, email, invoice number, or payment reference.':scope==='closed'?'Fully paid invoices will appear here once a payment is recorded.':scope==='open'?'There are no outstanding invoices to follow up on.':'Invoices in this status will appear here.'}</p>${q?'<button class="btn btn-outline" onclick="clearInvoiceSearch()">Clear search</button>':''}</div>`;
+}
 function renderAdminInvoices(){
-  if(!requireAdmin()) return;
-  const closed=new URLSearchParams(location.hash.split('?')[1]||'').get('status')==='closed';
-  const openOrders = state.orders
-    .filter(o=>!o.cancelled && o.paymentStatus && (closed?o.paymentStatus==='PAID':o.paymentStatus!=='PAID'))
-    .sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
-  const totalOutstandingCents = openOrders.reduce((s,o)=>s+(balanceFor(o)??0),0);
-  const overdueCount = openOrders.filter(o=>o.paymentStatus==='OVERDUE').length;
-  app.innerHTML = `
-    <div class="page admin-shell">
-      ${adminHeaderHtml('invoices')}
-      <div class="crm-actions"><a class="btn btn-outline" href="#/admin/invoices">Open invoices</a><a class="btn btn-outline" href="#/admin/invoices?status=closed">Closed invoices</a></div><h2 style="font-size:18px;">${closed?'Closed':'Open'} invoices (${openOrders.length})</h2>
-      <p class="muted" style="font-size:12.5px;margin-top:4px;">${closed?'Fully paid invoices.':'Unpaid, partial, and overdue invoices, oldest first.'} ${closed?'':fmt(totalOutstandingCents)+' known outstanding balance'}${openOrders.some(o=>balanceFor(o)===null)?' · Some partial-payment amounts need confirmation':''}${overdueCount>0?` · ${overdueCount} overdue`:''}.</p>
-      ${openOrders.length===0 ? `<p class="muted" style="margin-top:14px;">${closed?'No closed invoices yet.':'No outstanding invoices.'}</p>` : `
-        <div style="margin-top:12px;overflow-x:auto;">
-          <table class="admin-table">
-            <thead><tr><th>Date</th><th>Invoice</th><th>Shop</th><th>Days outstanding</th><th>Balance due</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              ${openOrders.map(o=>{
-                const acct = accountForEmail(o.shopEmail);
-                const daysOut = Math.round((Date.now()-new Date(o.createdAt))/86400000);
-                return `
-                <tr>
-                  <td>${fmtDate(o.createdAt)}</td>
-                  <td><a href="#/orders/${o.id}" class="link-accent" style="font-family:monospace;font-size:12px;">${o.invoiceNumber}</a></td>
-                  <td>${acct ? `<a href="#/admin/accounts/${encodeURIComponent(acct.id)}" class="link-accent">${esc(o.shopName)}</a>` : esc(o.shopName)}</td>
-                  <td>${daysOut}</td>
-                  <td>${balanceFor(o)===null?'To confirm':fmt(balanceFor(o))}</td>
-                  <td>
-                    <select class="field" style="padding:5px 28px 5px 8px;font-size:12px;width:auto;" onchange="setPaymentStatus('${o.id}', this.value)">
-                      ${PAYMENT_STATUSES.map(s=>`<option value="${s.id}" ${o.paymentStatus===s.id?'selected':''}>${esc(s.label)}</option>`).join('')}
-                    </select>
-                  </td>
-                  <td><a href="#/orders/${o.id}/invoice" class="link-accent" style="font-size:12px;">View invoice →</a></td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>`}
-    </div>`;
-  renderHeader();
+ if(!requireAdmin())return;
+ const scope=invoiceScope(),params=new URLSearchParams(location.hash.split('?')[1]||''),open=invoiceScopeOrders('open'),closed=invoiceScopeOrders('closed'),overdue=invoiceScopeOrders('overdue'),unknown=open.filter(o=>balanceFor(o)===null).length;
+ app.innerHTML=`<div class="page admin-shell invoice-desk">${adminHeaderHtml('invoices')}<section class="invoice-overview" aria-label="Invoice overview"><div class="invoice-overview-main"><span class="invoice-metric-label">Outstanding balance</span><strong>${fmt(open.reduce((sum,o)=>sum+(balanceFor(o)??0),0))}</strong><span>${open.length} open ${open.length===1?'invoice':'invoices'}${unknown?' · '+unknown+' '+(unknown===1?'balance':'balances')+' to confirm':''}</span></div><div><span class="invoice-metric-label">Needs follow-up</span><strong>${overdue.length}</strong><span>Overdue ${overdue.length===1?'invoice':'invoices'}</span></div><div><span class="invoice-metric-label">Closed invoices</span><strong>${closed.length}</strong><span>Fully paid &amp; recorded</span></div></section>
+ <div class="invoice-workspace"><nav class="invoice-tabs" aria-label="Invoice status">${[['open','Open',open.length],['overdue','Overdue',overdue.length],['partial','Partial',invoiceScopeOrders('partial').length],['closed','Closed',closed.length]].map(([id,label,count])=>`<a data-scope="${id}" href="#/admin/invoices${id==='open'?'':'?status='+id}" ${scope===id?'aria-current="page"':''}>${label}<span>${count}</span></a>`).join('')}</nav><div class="invoice-toolbar"><label class="invoice-search">Search invoices<input class="field" type="search" id="invoiceSearch" placeholder="Shop, invoice #, or payment reference" value="${esc(params.get('q')||'')}" oninput="updateInvoiceResults()"/></label><label class="invoice-sort">Sort by<select class="field" id="invoiceSort" onchange="updateInvoiceResults()">${[['oldest','Oldest first'],['newest','Newest first'],['balance',scope==='closed'?'Highest paid amount':'Largest balance']].map(([v,label])=>`<option value="${v}" ${params.get('sort')===v?'selected':''}>${label}</option>`).join('')}</select></label></div><div class="invoice-results-heading"><h2 id="invoiceResultHeading"></h2><span id="invoiceResultCount" role="status" aria-live="polite"></span></div><div id="invoiceResults"></div></div></div>`;
+ updateInvoiceResults();renderHeader();
 }
 
 // ---------- ADMIN: revenue & profit ----------
