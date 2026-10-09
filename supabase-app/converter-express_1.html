@@ -740,6 +740,7 @@ footer.site.footer-refined{background:#191f23;color:#bac2c7;padding:0;border-top
 .series-all{display:inline-flex;align-items:center;gap:16px;min-height:44px;font-size:13px;font-weight:600;}
 .series-all:hover{color:#b23a17;}
 .series-tiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;}
+.home-premium .series-tiles.series-count-many{grid-template-columns:repeat(4,minmax(0,1fr));}
 .series-tile{padding:24px 20px 17px;border:1px solid #343940;border-radius:9px;min-height:206px;background:#191d22;box-shadow:none;transition:background .18s,border-color .18s,transform .18s;}
 .series-family{font-size:11px;font-weight:500;line-height:1.5;color:#c0c5cc;}
 .series-number{font-size:clamp(30px,3vw,40px);font-weight:700;line-height:1.15;letter-spacing:-.015em;margin:13px 0 2px;white-space:nowrap;}
@@ -751,12 +752,12 @@ footer.site.footer-refined{background:#191f23;color:#bac2c7;padding:0;border-top
 .series-tile:hover{transform:translateY(-3px);background:#23282e;border-color:#f4774f;box-shadow:none;}
 .series-tile:hover .series-arrow{background:#f4774f;color:#15181d;}
 .series-tile:focus-visible,.series-all:focus-visible{outline:3px solid #b23a17;outline-offset:4px;}
-@media(max-width:1000px) and (min-width:641px){.series-tiles{grid-template-columns:repeat(3,minmax(0,1fr));}.series-number{font-size:36px;}}
+@media(max-width:1000px) and (min-width:641px){.home-premium .series-tiles,.home-premium .series-tiles.series-count-many{grid-template-columns:repeat(2,minmax(0,1fr));}.series-number{font-size:36px;}}
 @media(max-width:640px){
  .series-heading{margin-bottom:18px;gap:8px;}
  .series-heading h2{font-size:29px;}
  .series-heading p{font-size:13px;max-width:280px;}
- .series-tiles{grid-template-columns:1fr;gap:10px;}
+ .home-premium .series-tiles,.home-premium .series-tiles.series-count-many{grid-template-columns:1fr;gap:10px;}
  .series-tile{min-height:0;padding:18px 20px;flex-direction:row;align-items:center;gap:16px;}
  .series-number{font-size:32px;margin-top:6px;}
  .series-label{display:none;}
@@ -1481,10 +1482,10 @@ const HOME_QUALITY_PHOTO = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2
 const SERIES_TILE_STYLES = ['brand','accent',''];
 function seriesTilesHtml(){
   const cats = CATEGORIES.filter(c=>!c.startsWith('Backorder'));
-  return cats.map(c=>{
+  const tiles = cats.map(c=>{
     const count = PARTS.filter(p=>p.category===c).length;
     const split = c.split(' — ');
-    const family = split[0];
+    const family = split[0].replace(/\s+Company$/i, '');
     const series = (split[1] || c).replace(/ Series$/, '');
     return `
       <a href="#/catalog?category=${encodeURIComponent(c)}" class="series-tile" aria-label="${esc(c)}: ${count} parts">
@@ -1499,6 +1500,7 @@ function seriesTilesHtml(){
         </div>
       </a>`;
   }).join('');
+  return {tiles, className:cats.length>6?'series-count-many':''};
 }
 
 // Returns the right next-step call-to-action for wherever an unconditional
@@ -1519,6 +1521,7 @@ function renderHome(){
   const featured = PARTS.filter(p=>p.inStock!==false).slice(0,4);
   const showRecs = state.user && state.user.role==='CUSTOMER' && state.user.status==='APPROVED';
   const totalParts = PARTS.length;
+  const seriesCatalog = seriesTilesHtml();
   app.innerHTML = `
     <div class="home-premium">
     <section class="hero hero-shop">
@@ -1553,7 +1556,7 @@ function renderHome(){
           <div><span class="home-section-kicker">THE CATALOG</span><h2 id="series-heading">Your series. Your next job.</h2><p>Go straight to the converters you work with.</p></div>
           <a href="#/catalog" class="series-all">View full catalog <span aria-hidden="true">→</span></a>
         </div>
-        <div class="series-tiles">${seriesTilesHtml()}</div>
+        <div class="series-tiles ${seriesCatalog.className}">${seriesCatalog.tiles}</div>
       </section>
 
       <section class="home-featured"><div class="section-head">
