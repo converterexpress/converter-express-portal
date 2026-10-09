@@ -2549,7 +2549,7 @@ function renderOrderDetail(id){
           ${state.user.role==='ADMIN' ? (o.cancelled
             ? `<button class="btn btn-outline btn-sm" onclick="reinstateOrder('${o.id}')">Reinstate order</button>`
             : `<button class="btn btn-outline btn-sm" onclick="cancelOrder('${o.id}')">Cancel order</button>`
-          ) : ''}
+          ) : ''}${state.user.role==='ADMIN'&&o.channel==='PHONE'?manualDeleteButton('order',o.id,'Delete order'):''}
         </div>
       </div>
       <div class="card" style="padding:20px;margin-top:20px;">
@@ -3689,7 +3689,7 @@ function renderAdminOrders(){
                   <td>${o.cancelled ? `<span class="badge badge-bad">Cancelled</span>` : `<span class="badge badge-good">Active</span>`}</td>
                   <td>${o.cancelled
                     ? `<button class="btn btn-outline btn-sm" onclick="reinstateOrder('${o.id}')">Reinstate</button>`
-                    : `<button class="btn btn-outline btn-sm" onclick="cancelOrder('${o.id}')">Cancel</button>`}</td>
+                    : `<button class="btn btn-outline btn-sm" onclick="cancelOrder('${o.id}')">Cancel</button>`}${o.channel==='PHONE'?manualDeleteButton('order',o.id,'Delete order'):''}</td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -4317,7 +4317,7 @@ function renderAdminDiscounts(){
               <div style="display:flex;align-items:center;gap:10px;">
                 <span class="badge ${d.active?'badge-good':'badge-line'}">${d.active?'Active':'Disabled'}</span>
                 <button class="btn btn-outline btn-sm" onclick="toggleDiscountCode('${esc(d.code)}')">${d.active?'Disable':'Enable'}</button>
-                <button class="btn btn-outline btn-sm" onclick="deleteDiscountCode('${esc(d.code)}')">Delete</button>
+                ${manualDeleteButton('discount',d.code,'Delete code')}
               </div>
             </div>`).join('')}
         </div>`}
