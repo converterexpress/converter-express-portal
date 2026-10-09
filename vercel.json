@@ -35,6 +35,39 @@
   "cleanUrls": true,
   "redirects": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "converterexpress.co"
+        }
+      ],
+      "destination": "https://www.converterexpress.net/",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.converterexpress.co"
+        }
+      ],
+      "destination": "https://www.converterexpress.net/",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "converterexpress.net"
+        }
+      ],
+      "destination": "https://www.converterexpress.net/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [
         {
