@@ -19,3 +19,4 @@ supabase/.temp/
 
 dist/
 .vercel/
+.worktrees/
