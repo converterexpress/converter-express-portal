@@ -1,5 +1,5 @@
 const fs=require('node:fs'),path=require('node:path');
-const origin='https://converterexpress.net';
+const origin='https://www.converterexpress.net';
 const pages=require('../seo/pages.json');
 const esc=s=>s.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;');
 const links=pages.map(p=>`<a href="/${p.slug}">${esc(p.heading)}</a>`).join('');

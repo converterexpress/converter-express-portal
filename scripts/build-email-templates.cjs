@@ -1,5 +1,5 @@
 const fs=require('node:fs'),path=require('node:path');
-const base='https://converterexpress.net';
+const base='https://www.converterexpress.net';
 const definitions=[
  ['confirmation','Verify your Converter Express account','One step closer to your next order.','Verify your email to continue your shop application. Once your application is approved, you can access wholesale pricing and place orders.','Verify my email','email'],
  ['recovery','Reset your Converter Express password','Let’s get you signed back in.','We received a request to reset your password. Continue below to choose a new one. Your current password stays the same until you complete the reset.','Reset password','recovery'],

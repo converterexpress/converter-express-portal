@@ -28,4 +28,4 @@ Run `node tests/static-build.cjs` and `node tests/fitment.cjs` to verify the dep
 
 ## Primary domain (October 8, 2026)
 
-The primary website address is `https://converterexpress.net/`. SEO canonicals, sitemap URLs, branded Auth email links and new order email links use this domain. The email sender remains `accounts@converterexpress.co`, which is the verified sending domain. Supabase allows the new origin while retaining existing origins for compatibility. Vercel must connect the bare `.net` domain to Production, not redirect it to `www`, before enabling the configured alias redirects.
+The primary website address is `https://www.converterexpress.net/`. SEO canonicals, sitemap URLs, branded Auth email links and new order email links use this domain. The email sender remains `accounts@converterexpress.co`, which is the verified sending domain. Supabase allows the new origin while retaining existing origins for compatibility. Vercel redirects the bare `.net` domain to the primary `www.converterexpress.net` host.
