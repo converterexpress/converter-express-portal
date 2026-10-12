@@ -3789,12 +3789,10 @@ function renderAdminInvoices(){
 
 // ---------- ADMIN: revenue & profit ----------
 // Real cost-vs-profit accounting, built from each order's line items. A line
-// only counts toward "cost"/"profit" once an admin has set a cost on that
-// part (captured on the line at the time of sale — see the costCents field
-// added in buildOrder/seedOrder above — so a later cost edit never rewrites
-// a past sale's numbers); until then it still counts as revenue, just
-// flagged as "cost not set" everywhere it shows up, the same transparency
-// pattern pricePending already uses elsewhere in this admin.
+// uses the cost captured on the order line whenever it exists. Older orders
+// predate cost snapshots, so they fall back to the product's current catalog
+// cost and are labelled as estimates. A line remains incomplete only when
+// neither source has a cost.
 let revenueRangeDays = null;
 let revenueView = 'overall'; // 'overall' | 'series' | 'part' | 'sale'
 function setRevenueRange(days){ revenueRangeDays = days; render(); }
@@ -3813,12 +3811,13 @@ function revenueLineItems(days){
       const cumulative=gross>0?Math.round(discount*seen/gross):0;
       const lineDiscount=cumulative-allocated;allocated=cumulative;
       const revenueCents=lineGross-lineDiscount;
-      const hasCost = l.costCents!=null;
-      const costCents = hasCost ? l.costCents*l.quantity : 0;
+      const savedCost = l.costCents!=null, catalogCost=!savedCost&&p?.costCents!=null;
+      const hasCost = savedCost||catalogCost;
+      const costCents = hasCost ? (savedCost?l.costCents:p.costCents)*l.quantity : 0;
       lines.push({
         orderId:o.id, invoiceNumber:o.invoiceNumber, createdAt:o.createdAt, shopName:o.shopName,
         partId:l.partId, name:l.name, category: p ? p.category : 'Unknown series',
-        quantity:l.quantity, revenueCents, hasCost, costCents,
+        quantity:l.quantity, revenueCents, hasCost, costEstimated:catalogCost, costCents,
         profitCents: hasCost ? revenueCents-costCents : null,
       });
     });
@@ -3920,9 +3919,10 @@ function saveProfitAssumptions(){
 
 function overviewProfitHtml(days){
  const {orders,lines}=revenueLineItems(days),known=lines.filter(l=>l.hasCost),missing=lines.length-known.length;
+ const estimated=lines.filter(l=>l.costEstimated).length;
  const knownRevenue=known.reduce((n,l)=>n+l.revenueCents,0),cost=known.reduce((n,l)=>n+l.costCents,0),fees=orders.reduce((n,o)=>{const e=orderExpenseCents(o);return n+e.merchantFeeCents+e.shippingCostCents;},0),core=coreForfeitureAdjustmentCents(lines),profit=knownRevenue-cost-fees+core;
  const segments=[{label:'Product cost',valueCents:cost,color:'var(--ash)'},{label:'Fees & shipping',valueCents:fees,color:'#D97706'},{label:'Net profit',valueCents:profit,color:'var(--good-fg)'}],positive=segments.reduce((n,x)=>n+Math.max(0,x.valueCents),0);
- return `<section class="overview-profit" aria-labelledby="overview-profit-title"><div class="admin-section-heading"><h2 id="overview-profit-title">Cost &amp; profit breakdown</h2><span class="muted">Selected period</span></div><div class="card overview-profit-card"><div class="overview-profit-chart">${donutChartSvg(segments,{size:180,thickness:26,centerLabel:knownRevenue>0?Math.round(profit/knownRevenue*100)+'%':'—',centerSub:'net margin'}).replace('<svg ','<svg role="img" aria-label="Cost, fees, and net profit breakdown" ')}</div><dl class="overview-profit-legend">${segments.map(x=>`<div><dt><i style="background:${x.color}" aria-hidden="true"></i>${x.label}</dt><dd class="${x.valueCents<0?'profit-negative':''}">${fmt(x.valueCents)}</dd><dd class="profit-percent">${x.valueCents<0?'—':positive?Math.round(x.valueCents/positive*100)+'%':'0%'}</dd></div>`).join('')}</dl></div><p class="overview-profit-note">Product cost and profit use saved order-line costs. Fees include processing and actual shipping costs. ${missing?`${missing} sold line${missing===1?' has':'s have'} no cost recorded; profit is incomplete. `:''}${profit<0?'Recorded costs and fees exceed cost-known sales. ':''}${core>0?fmt(core)+' assumed core forfeiture is included. ':''}<a href="#/admin/settings">Manage cost assumptions →</a></p></section>`;
+ return `<section class="overview-profit" aria-labelledby="overview-profit-title"><div class="admin-section-heading"><h2 id="overview-profit-title">Cost &amp; profit breakdown</h2><span class="muted">Selected period</span></div><div class="card overview-profit-card"><div class="overview-profit-chart">${donutChartSvg(segments,{size:180,thickness:26,centerLabel:knownRevenue>0?Math.round(profit/knownRevenue*100)+'%':'—',centerSub:'net margin'}).replace('<svg ','<svg role="img" aria-label="Cost, fees, and net profit breakdown" ')}</div><dl class="overview-profit-legend">${segments.map(x=>`<div><dt><i style="background:${x.color}" aria-hidden="true"></i>${x.label}</dt><dd class="${x.valueCents<0?'profit-negative':''}">${fmt(x.valueCents)}</dd><dd class="profit-percent">${x.valueCents<0?'—':positive?Math.round(x.valueCents/positive*100)+'%':'0%'}</dd></div>`).join('')}</dl></div><p class="overview-profit-note">Product cost and profit use saved order-line costs. ${estimated?`${estimated} older sold line${estimated===1?' uses':'s use'} the current catalog cost as an estimate. `:''}Fees include processing and actual shipping costs. ${missing?`${missing} sold line${missing===1?' has':'s have'} no saved or current catalog cost; profit is incomplete. `:''}${profit<0?'Recorded costs and fees exceed cost-known sales. ':''}${core>0?fmt(core)+' assumed core forfeiture is included. ':''}<a href="${missing?'#/admin/products':'#/admin/settings'}">${missing?'Add missing product costs':'Manage cost assumptions'} →</a></p></section>`;
 }
 
 function revenueOverallHtml(m){
