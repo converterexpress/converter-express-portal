@@ -55,6 +55,10 @@ Deno.serve(async req=>{
    if(Object.keys(body).some(k=>!['action','reservationId'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.reservationId||''))throw new AppError('Invalid checkout request');const r=await rpc('ce_checkout_read',{rid:body.reservationId});
    if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);return respond({reservation:{id:r.id,status:r.status,amountCents:r.amount_cents,expiresAt:r.expires_at,orderId:r.confirmed_order_id||null}});
   }
+  if(body.action==='checkout-abandon'){
+   if(Object.keys(body).some(k=>!['action','reservationId'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.reservationId||''))throw new AppError('Invalid checkout request');
+   const r=await rpc('ce_checkout_read',{rid:body.reservationId});if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);if(r.status==='READY')await rpc('ce_checkout_transition',{rid:r.id,expected:'READY',next_state:'EXPIRED',payment_id:null,failure:'Customer changed payment method'});return respond({status:'EXPIRED'});
+  }
   if(body.action==='checkout-session'){
    if(Object.keys(body).some(k=>!['action','reservationId'].includes(k)))throw new AppError('Invalid checkout request');const r=await rpc('ce_checkout_read',{rid:body.reservationId});if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);
    if(['PROCESSING','PAID','REVIEW'].includes(r.status))return respond({status:r.status,orderId:r.confirmed_order_id||null});if(new Date(r.expires_at)<=new Date())throw new AppError('Checkout expired. Review current price and availability.',409);
