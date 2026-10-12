@@ -16,6 +16,8 @@ The latest catalog contains 1,308 parts. Sample accounts, orders, seeded costs a
 
 The Supabase build includes customer login, admin TOTP, scoped server responses, private business-license storage, server-calculated orders, stock checks, revision conflicts and retry protection. Local business-rule, PostgreSQL-engine and browser tests have passed; browser Auth tests use explicit mocks. Actual Supabase Auth, email, Edge Functions, Storage and the complete deployed CRM still require verification.
 
+Checkout supports Whop online payment plus cash or check collected at delivery. Offline choices create an inventory reservation and an admin review item; the order remains unconfirmed until an administrator records the full payment in **Delivery payments**. Paid invoices retain the payment method, collection timestamp, accepting administrator, and optional receipt/check reference.
+
 See [Supabase setup and release checks](supabase-app/README.md). Supply only a Supabase project URL and publishable key in `supabase-app/config.js`; never add server secrets to frontend files. Follow its deployment asset allowlist rather than publishing the repository directory.
 
 ## Vercel deployment
