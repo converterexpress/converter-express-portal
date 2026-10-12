@@ -27,3 +27,21 @@ export async function sendOrderEmail({rpc,apiKey,orderId,kind,fetcher=fetch}){
  await rpc('ce_email_finish',{oid:orderId,mail_kind:kind,claim_id:claim,outcome:status,provider,problem:issue});
  return {status,providerId:provider,issue};
 }
+
+export function offlinePaymentEmail(reservation,kind){
+ if(!['received','cancelled'].includes(kind)||!reservation?.quote||!Array.isArray(reservation.quote.lines))throw new AppError('Invalid delivery payment email');
+ const email=reservation.shopEmail||reservation.shop_email;if(!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email||''))throw new AppError('The delivery request has an invalid recipient email');
+ const method=(reservation.paymentMethod||reservation.payment_method)==='CHECK'?'Check':'Cash',number=reservation.requestNumber||reservation.request_number||'',amount=reservation.amountCents??reservation.amount_cents;
+ const cancelled=kind==='cancelled',title=cancelled?'Delivery payment request cancelled':'Delivery payment request received';
+ const subject=`${cancelled?'Cancelled':'Payment request'} ${String(number).replace(/[\r\n]/g,'')} · Converter Express`;
+ const message=cancelled?'This delivery payment request has been cancelled. No payment is due.':`${method} will be collected at delivery. Your order is not confirmed until payment is collected and recorded by Converter Express.`;
+ const html=`<!doctype html><html lang="en"><body style="margin:0;background:#efefeb;font-family:Arial,Helvetica,sans-serif;color:#1b2024"><table role="presentation" width="100%"><tr><td align="center" style="padding:28px 12px"><table role="presentation" width="100%" style="max-width:580px"><tr><td style="padding:28px;background:#171d21;color:white;border-bottom:4px solid #e24c23;font-size:21px;font-weight:bold">CONVERTER <span style="color:#ff8a60">EXPRESS</span></td></tr><tr><td style="padding:28px;background:white"><p style="color:#b23815;font-size:11px;letter-spacing:1.5px;font-weight:bold">DELIVERY PAYMENT</p><h1>${title}</h1><p style="line-height:1.7">Hello ${esc(reservation.quote.shopName||'shop')},<br>${esc(message)}</p><p><strong>${esc(number)}</strong><br>${esc(method)} on delivery · ${money(amount)}</p><p style="margin:28px 0"><a href="https://www.converterexpress.net/#/orders" style="display:inline-block;padding:15px 22px;background:#ce4018;color:#fff;font-weight:bold;border-radius:6px;text-decoration:none">View your account →</a></p></td></tr></table></td></tr></table></body></html>`;
+ const text=[title,number,`${method} on delivery`,money(amount),message,'https://www.converterexpress.net/#/orders'].join('\n');
+ return {from:'Converter Express <accounts@converterexpress.co>',to:[email],subject,html,text};
+}
+export async function sendOfflinePaymentEmail({apiKey,reservation,kind,fetcher=fetch}){
+ if(!apiKey)return {status:'not_configured',issue:'Delivery payment email sending is not configured.'};
+ const payload=offlinePaymentEmail(reservation,kind);
+ try{const response=await fetcher('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json','Idempotency-Key':'ce-offline-'+kind+'-'+reservation.id},body:JSON.stringify(payload),signal:AbortSignal.timeout(12000)});const result=await response.json();if(response.ok&&typeof result.id==='string')return {status:'accepted',providerId:result.id};if(response.status>=400&&response.status<500&&![408,409,429].includes(response.status))return {status:'failed',issue:'Email provider rejected the request.'};}catch{}
+ return {status:'unknown',issue:'Email delivery could not be confirmed.'};
+}

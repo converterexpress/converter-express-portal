@@ -15,6 +15,12 @@ Latest release audit: [October 6, 2026 findings and remaining launch requirement
 - Private license uploads bound to the authenticated user; short-lived admin download links; size/signature checks.
 - Fixed-host fitment proxy, private audit log, shared authenticated and anonymous request budgets, and revision conflict checks.
 
+### Checkout payment methods
+
+Approved shops can pay online through Whop or request cash/check collection when their delivery arrives. Cash and check requests reserve inventory but do not create or confirm an order until an administrator opens **Admin → Delivery payments**, confirms the full server-calculated amount was collected, and records the payment. Check requests require a check or receipt reference. The resulting paid invoice records the method, collection time, accepting administrator, and reference. Administrators can cancel an uncollected request with a required reason; cancelled requests release their inventory hold.
+
+Deploy `202610110001_offline_delivery_payments.sql` before the matching `crm-api` function and frontend. The offline-payment RPCs remain private to the service role. Never mark these requests paid directly in the browser or expose the finalize/cancel RPCs to authenticated client roles.
+
 ## Connect a project
 
 1. Create a Supabase project in an appropriate US region under the business owner's account. Keep the database password private. Require MFA on the Supabase owner account.
