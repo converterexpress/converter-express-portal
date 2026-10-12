@@ -2269,6 +2269,7 @@ function removeLine(id){ state.cart = state.cart.filter(l=>l.partId!==id); rende
 let checkoutMethod = 'SHIP';
 let checkoutFulfillment = null;
 let checkoutDiscountCode = null;
+let checkoutPaymentMethod = 'WHOP';
 function renderCheckout(){
   if(!state.user){
     app.innerHTML = `<div class="page-narrow center-narrow"><h1 style="font-size:26px;">Sign in to check out</h1><div style="display:flex;gap:10px;justify-content:center;margin-top:20px;"><a href="#/login" class="btn btn-primary">Sign in</a><a href="#/register" class="btn btn-outline">Open an account</a></div></div>`;
@@ -2286,6 +2287,7 @@ function renderCheckout(){
   checkoutMethod = 'SHIP';
   checkoutFulfillment = null;
   checkoutDiscountCode = firstOrderEligible() ? 'WELCOME50' : null;
+  checkoutPaymentMethod = 'WHOP';
 
   app.innerHTML = `
     <div class="page-mid">
@@ -2343,10 +2345,16 @@ function renderCheckout(){
           </div>
           <div id="promoMsg" style="font-size:12.5px;margin-top:6px;" hidden></div>
         </div>
+        <fieldset class="card checkout-payment-methods" style="margin-top:16px;">
+          <legend>How would you like to pay?</legend>
+          <label><input type="radio" name="checkoutPaymentMethod" value="WHOP" checked onchange="setCheckoutPaymentMethod(this.value)"/><span><strong>Pay online with Whop</strong><small>Secure online payment before confirmation</small></span></label>
+          <label><input type="radio" name="checkoutPaymentMethod" value="CASH" onchange="setCheckoutPaymentMethod(this.value)"/><span><strong>Cash on delivery</strong><small>Pay the driver when your delivery arrives</small></span></label>
+          <label><input type="radio" name="checkoutPaymentMethod" value="CHECK" onchange="setCheckoutPaymentMethod(this.value)"/><span><strong>Check on delivery</strong><small>Give the driver your check when your delivery arrives</small></span></label>
+        </fieldset>
         <div class="card" style="padding:22px;margin-top:16px;" id="totalsCard"></div>
-        <div class="demo-note" style="margin-top:16px;">Your order is confirmed only after Whop verifies the payment.</div>
+        <div class="demo-note" id="checkoutPaymentNote" style="margin-top:16px;">Your order is confirmed only after Whop verifies the payment.</div>
         <button class="btn btn-primary btn-block" id="payBtn" style="margin-top:16px;" onclick="fakePay()">Continue to secure payment</button>
-        <p class="muted" style="margin-top:12px;font-size:12px;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <p class="muted" id="checkoutPaymentSecurity" style="margin-top:12px;font-size:12px;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           Online payments are securely processed by Whop. Converter Express does not store your full card number.
         </p>
