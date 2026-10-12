@@ -16,3 +16,6 @@ test('checkout states and expiration are constrained',()=>{
  for(const state of ['CREATING','READY','PROCESSING','PAID','EXPIRED','FAILED','REVIEW'])assert.match(sql,new RegExp("'"+state+"'"));
  assert.match(sql,/expires_at timestamptz not null/i);
 });
+
+const offline=await readFile(new URL('../supabase/migrations/202610110001_offline_delivery_payments.sql',import.meta.url),'utf8');
+test('offline delivery payment migration is private and atomic',()=>{for(const value of ['AWAITING_OFFLINE_PAYMENT','CANCELLED','payment_method','request_number','ce_offline_checkout_reserve','ce_offline_checkout_list','ce_offline_checkout_finalize','ce_offline_checkout_cancel'])assert.match(offline,new RegExp(value,'i'));assert.match(offline,/for update/i);assert.match(offline,/confirmed_order_id is not null then return/i);assert.match(offline,/revoke all on function public\.ce_offline_checkout_finalize/i);});
