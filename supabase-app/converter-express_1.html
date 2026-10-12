@@ -740,29 +740,31 @@ footer.site.footer-refined{background:#191f23;color:#bac2c7;padding:0;border-top
 .series-heading p{font-size:14px;line-height:1.6;color:#5b6270;margin:9px 0 0;}
 .series-all{display:inline-flex;align-items:center;gap:16px;min-height:44px;font-size:13px;font-weight:600;}
 .series-all:hover{color:#b23a17;}
-.series-tiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;}
-.home-premium .series-tiles.series-count-many{grid-template-columns:repeat(4,minmax(0,1fr));}
-.series-tile{padding:24px 20px 17px;border:1px solid #343940;border-radius:9px;min-height:206px;background:#191d22;box-shadow:none;transition:background .18s,border-color .18s,transform .18s;}
+.series-tiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1px solid #3c454b;border-radius:10px;overflow:hidden;}
+.series-tile{display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:18px 22px;border:0;border-right:1px solid #3c454b;border-bottom:1px solid #3c454b;border-radius:0;min-height:142px;background:#252c31;box-shadow:none;transition:background .18s,color .18s;}
+.series-tile:nth-child(3n){border-right:0;}
+.series-tile:nth-last-child(-n+3){border-bottom:0;}
 .series-family{font-size:11px;font-weight:500;line-height:1.5;color:#c0c5cc;}
-.series-number{font-size:clamp(30px,3vw,40px);font-weight:700;line-height:1.15;letter-spacing:-.015em;margin:13px 0 2px;white-space:nowrap;}
+.series-number{font-size:clamp(27px,2.6vw,36px);font-weight:700;line-height:1.05;letter-spacing:-.015em;margin:7px 0 2px;overflow-wrap:anywhere;}
 .series-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;color:#c0c5cc;}
-.series-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #383d44;margin-top:24px;padding-top:14px;}
+.series-bottom{display:flex;align-items:center;justify-content:space-between;gap:14px;border:0;margin:auto 0 0;padding:0;}
 .series-tile .count{margin:0;color:#edf0f3;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;}
 .series-tile .count span{color:#bdc3cb;font-weight:400;}
 .series-arrow{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;color:#ff956e;background:#303034;font-size:19px;line-height:1;}
-.series-tile:hover{transform:translateY(-3px);background:#23282e;border-color:#f4774f;box-shadow:none;}
+.series-tile:hover{transform:none;background:#303a40;box-shadow:none;}
 .series-tile:hover .series-arrow{background:#f4774f;color:#15181d;}
 .series-tile:focus-visible,.series-all:focus-visible{outline:3px solid #b23a17;outline-offset:4px;}
-@media(max-width:1000px) and (min-width:641px){.home-premium .series-tiles,.home-premium .series-tiles.series-count-many{grid-template-columns:repeat(2,minmax(0,1fr));}.series-number{font-size:36px;}}
+@media(max-width:1000px) and (min-width:641px){.home-premium .series-tiles{grid-template-columns:repeat(2,minmax(0,1fr));}.series-tile:nth-child(n){border-right:1px solid #3c454b;border-bottom:1px solid #3c454b}.series-tile:nth-child(2n){border-right:0}.series-tile:nth-last-child(-n+2){border-bottom:0}.series-number{font-size:32px;}}
 @media(max-width:640px){
  .series-heading{margin-bottom:18px;gap:8px;}
  .series-heading h2{font-size:29px;}
  .series-heading p{font-size:13px;max-width:280px;}
- .home-premium .series-tiles,.home-premium .series-tiles.series-count-many{grid-template-columns:1fr;gap:10px;}
- .series-tile{min-height:0;padding:18px 20px;flex-direction:row;align-items:center;gap:16px;}
- .series-number{font-size:32px;margin-top:6px;}
+ .home-premium .series-tiles{grid-template-columns:1fr;gap:0;}
+ .series-tile:nth-child(n){min-height:0;padding:15px 16px;display:grid;grid-template-columns:minmax(0,1fr) auto;border-right:0;border-bottom:1px solid #3c454b;gap:14px;}
+ .series-tile:last-child{border-bottom:0;}
+ .series-number{font-size:28px;margin-top:4px;}
  .series-label{display:none;}
- .series-bottom{border:0;padding:0;margin:0;flex-direction:column;align-items:flex-end;gap:12px;flex-shrink:0;}
+ .series-bottom{border:0;padding:0;margin:0;flex-direction:row;align-items:center;gap:10px;flex-shrink:0;}
  .series-tile:hover{transform:none;}
 }
 @media(prefers-reduced-motion:reduce){.series-tile{transition:none;transform:none;}}
@@ -1484,8 +1486,10 @@ const HOME_QUALITY_PHOTO = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2
 const SERIES_TILE_STYLES = ['brand','accent',''];
 function seriesTilesHtml(){
   const cats = CATEGORIES.filter(c=>!c.startsWith('Backorder'));
-  const tiles = cats.map(c=>{
-    const count = PARTS.filter(p=>p.category===c).length;
+  const popular = cats.map(c=>({category:c,count:PARTS.filter(p=>p.category===c).length}))
+    .sort((a,b)=>b.count-a.count||a.category.localeCompare(b.category))
+    .slice(0,6);
+  const tiles = popular.map(({category:c,count})=>{
     const split = c.split(' — ');
     const family = split[0].replace(/\s+Company$/i, '');
     const series = (split[1] || c).replace(/ Series$/, '');
@@ -1502,7 +1506,7 @@ function seriesTilesHtml(){
         </div>
       </a>`;
   }).join('');
-  return {tiles, className:cats.length>6?'series-count-many':''};
+  return {tiles,totalCount:cats.length};
 }
 
 // Returns the right next-step call-to-action for wherever an unconditional
@@ -1555,10 +1559,10 @@ function renderHome(){
       ${showRecs ? recommendationsHtml(state.user) : ''}
       <section class="series-section" aria-labelledby="series-heading">
         <div class="section-head series-heading">
-          <div><span class="home-section-kicker">THE CATALOG</span><h2 id="series-heading">Your series. Your next job.</h2><p>Go straight to the converters you work with.</p></div>
-          <a href="#/catalog" class="series-all">View full catalog <span aria-hidden="true">→</span></a>
+          <div><span class="home-section-kicker">THE CATALOG</span><h2 id="series-heading">Popular series.</h2><p>Start with the collections shops order most.</p></div>
+          <a href="#/catalog" class="series-all">Browse all ${seriesCatalog.totalCount.toLocaleString()} series <span aria-hidden="true">→</span></a>
         </div>
-        <div class="series-tiles ${seriesCatalog.className}">${seriesCatalog.tiles}</div>
+        <div class="series-tiles">${seriesCatalog.tiles}</div>
       </section>
 
       <section class="home-featured"><div class="section-head">
