@@ -86,7 +86,7 @@ Deno.serve(async req=>{
   if(body.action==='offline-checkout-finalize'){
    if(Object.keys(body).some(k=>!['action','reservationId','method','reference'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.reservationId||'')||!['CASH','CHECK'].includes(body.method)||typeof body.reference!=='string'||body.reference.length>120)throw new AppError('Invalid delivery payment collection');if(!user?.admin)throw new AppError('Administrator sign-in required',403);
    const r=await rpc('ce_checkout_read',{rid:body.reservationId});if(!r)throw new AppError('Delivery payment request not found',404);
-   const reservation={id:r.id,quote:r.quote,requestHash:r.request_hash,paymentMethod:r.payment_method,amountCents:r.amount_cents};const order=buildOfflinePaidOrder(reservation,{method:body.method,amountCents:r.amount_cents,reference:body.reference,actorId:user.id,collectedAt:new Date().toISOString()});
+   const reservation={id:r.id,quote:r.quote,requestHash:r.request_hash,paymentMethod:r.payment_method,amountCents:r.amount_cents};const order=buildOfflinePaidOrder(reservation,{method:body.method,amountCents:r.amount_cents,reference:body.reference,actorId:user.id,actorEmail:user.email,collectedAt:new Date().toISOString()});
    const orderId=await rpc('ce_offline_checkout_finalize',{rid:r.id,method:body.method,amount:r.amount_cents,reference:body.reference,actor:user.id,paid_order:order});const email=await sendMail(orderId,'confirmation');return respond({orderId,email});
   }
   if(body.action==='offline-checkout-cancel'){
