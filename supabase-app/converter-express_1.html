@@ -2344,11 +2344,13 @@ function renderCheckout(){
           </div>
           <div id="promoMsg" style="font-size:12.5px;margin-top:6px;" hidden></div>
         </div>
-        <fieldset class="card checkout-payment-types" style="margin-top:16px;">
-          <legend>How would you like to pay?</legend>
-          <label><input type="radio" name="checkoutPaymentType" value="WHOP" checked onchange="setCheckoutPaymentType(this.value)"/><span><strong>Online payment</strong><small>Pay securely with Whop</small></span></label>
-          <label><input type="radio" name="checkoutPaymentType" value="DELIVERY" onchange="setCheckoutPaymentType(this.value)"/><span><strong>Payment on delivery</strong><small>Pay with cash or check when your order arrives</small></span></label>
-        </fieldset>
+        <section class="card checkout-payment-selector" style="margin-top:16px;">
+          <h2 id="checkoutPaymentHeading">How would you like to pay?</h2>
+          <div class="checkout-payment-types" role="radiogroup" aria-labelledby="checkoutPaymentHeading">
+            <label><input type="radio" name="checkoutPaymentType" value="WHOP" checked onchange="setCheckoutPaymentType(this.value)"/><span><strong>Online payment</strong><small>Pay securely with Whop</small></span></label>
+            <label><input type="radio" name="checkoutPaymentType" value="DELIVERY" onchange="setCheckoutPaymentType(this.value)"/><span><strong>Payment on delivery</strong><small>Pay with cash or check when your order arrives</small></span></label>
+          </div>
+        </section>
         <fieldset class="card delivery-method-choices" id="deliveryPaymentMethods" hidden>
           <legend>Choose cash or check</legend>
           <label><input type="radio" name="checkoutDeliveryMethod" value="CASH" checked onchange="setCheckoutPaymentMethod(this.value)"/><span><strong>Cash</strong><small>Give payment to the driver</small></span></label>
