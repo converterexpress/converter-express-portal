@@ -1,9 +1,9 @@
 import {invoiceBalance,checkoutPayload,elementPaymentPayload,reservationPaymentPayload,paymentElementConfig,safeCheckoutUrl,whopRequest,whopPaymentRequest} from '../_shared/whop.mjs';
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
-import {orderEmail,sendOrderEmail} from '../_shared/order-email.mjs';
+import {orderEmail,sendOrderEmail,sendOfflinePaymentEmail} from '../_shared/order-email.mjs';
 import {quoteEmail,sendQuoteEmail} from '../_shared/quote-email.mjs';
 import {project,command,validate,validateAdminRemovals,principal,AppError} from '../_shared/business.mjs';
-import {buildCheckoutReservation,checkoutRequestHash} from '../_shared/checkout.mjs';
+import {buildCheckoutReservation,checkoutRequestHash,buildOfflinePaidOrder} from '../_shared/checkout.mjs';
 const url=Deno.env.get('SUPABASE_URL')!;
 const secret=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -68,6 +68,30 @@ Deno.serve(async req=>{
    const r=await rpc('ce_checkout_read',{rid:body.reservationId});if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);if(r.status!=='READY'||r.payment_reference!==body.reference)throw new AppError('This checkout can no longer accept payment. Check its status before trying again.',409);if(new Date(r.expires_at)<=new Date())throw new AppError('Checkout expired. Review current price and availability.',409);
    const payment=await whopPaymentRequest('payments',key,reservationPaymentPayload(r,companyId,body.confirmationToken,user!.email));if(!/^pay_[A-Za-z0-9]+$/.test(payment.id||'')||payment.account_id!==companyId||typeof payment.client_secret!=='string'||!payment.client_secret.startsWith(payment.id+'_secret_'))throw new AppError('Whop returned an invalid payment',502);
    const changed=await rpc('ce_checkout_transition',{rid:r.id,expected:'READY',next_state:'PROCESSING',payment_id:payment.id,failure:null});if(!changed)throw new AppError('Checkout changed during payment confirmation. Check its status.',409);return respond({clientSecret:payment.client_secret,status:payment.status||'open'});
+  }
+  if(body.action==='checkout-offline'){
+   if(Object.keys(body).some(k=>!['action','idempotencyKey','items','fulfillment','job','poNumber','notes','discountCode','paymentMethod'].includes(k))||!['CASH','CHECK'].includes(body.paymentMethod))throw new AppError('Invalid delivery payment request');
+   const row=await rpc('ce_workspace_read'),active=await rpc('ce_checkout_active');
+   const args={idempotencyKey:body.idempotencyKey,items:body.items,fulfillment:body.fulfillment,job:body.job||{},poNumber:body.poNumber||'',notes:body.notes||'',discountCode:body.discountCode||'',paymentMethod:body.paymentMethod};
+   const reservation=await buildCheckoutReservation(row.data,user,args,active||[]);
+   const saved=await rpc('ce_offline_checkout_reserve',{rid:reservation.id,uid:user!.id,email:user!.email,body:reservation.quote,hash:reservation.requestHash,method:reservation.paymentMethod,request_no:reservation.requestNumber,amount:reservation.amountCents});
+   const normalized={id:saved.id,shopEmail:saved.shop_email,paymentMethod:saved.payment_method,requestNumber:saved.request_number,amountCents:saved.amount_cents,quote:saved.quote};
+   const email=await sendOfflinePaymentEmail({apiKey:Deno.env.get('RESEND_API_KEY'),reservation:normalized,kind:'received'});
+   return respond({reservation:{id:saved.id,status:saved.status,requestNumber:saved.request_number,method:saved.payment_method,amountCents:saved.amount_cents},email});
+  }
+  if(body.action==='offline-checkout-list'){
+   if(Object.keys(body).some(k=>!['action'].includes(k)))throw new AppError('Invalid delivery payment request');if(!user?.admin)throw new AppError('Administrator sign-in required',403);
+   return respond({requests:await rpc('ce_offline_checkout_list')});
+  }
+  if(body.action==='offline-checkout-finalize'){
+   if(Object.keys(body).some(k=>!['action','reservationId','method','reference'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.reservationId||'')||!['CASH','CHECK'].includes(body.method)||typeof body.reference!=='string'||body.reference.length>120)throw new AppError('Invalid delivery payment collection');if(!user?.admin)throw new AppError('Administrator sign-in required',403);
+   const r=await rpc('ce_checkout_read',{rid:body.reservationId});if(!r)throw new AppError('Delivery payment request not found',404);
+   const reservation={id:r.id,quote:r.quote,requestHash:r.request_hash,paymentMethod:r.payment_method,amountCents:r.amount_cents};const order=buildOfflinePaidOrder(reservation,{method:body.method,amountCents:r.amount_cents,reference:body.reference,actorId:user.id,collectedAt:new Date().toISOString()});
+   const orderId=await rpc('ce_offline_checkout_finalize',{rid:r.id,method:body.method,amount:r.amount_cents,reference:body.reference,actor:user.id,paid_order:order});const email=await sendMail(orderId,'confirmation');return respond({orderId,email});
+  }
+  if(body.action==='offline-checkout-cancel'){
+   if(Object.keys(body).some(k=>!['action','reservationId','reason'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.reservationId||'')||typeof body.reason!=='string'||body.reason.trim().length<1||body.reason.length>500)throw new AppError('Invalid delivery payment cancellation');if(!user?.admin)throw new AppError('Administrator sign-in required',403);
+   const cancelled=await rpc('ce_offline_checkout_cancel',{rid:body.reservationId,actor:user.id,reason:body.reason});const normalized={id:cancelled.id,shopEmail:cancelled.shop_email,paymentMethod:cancelled.payment_method,requestNumber:cancelled.request_number,amountCents:cancelled.amount_cents,quote:cancelled.quote};const email=await sendOfflinePaymentEmail({apiKey:Deno.env.get('RESEND_API_KEY'),reservation:normalized,kind:'cancelled'});return respond({request:cancelled,email});
   }
   if(body.action==='license'){
    const row=await rpc('ce_workspace_read');if(!row)throw new AppError('Workspace unavailable',503);
