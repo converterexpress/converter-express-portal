@@ -1,4 +1,4 @@
-import {invoiceBalance,checkoutPayload,elementPaymentPayload,reservationPaymentPayload,paymentElementConfig,safeCheckoutUrl,whopRequest,whopPaymentRequest} from '../_shared/whop.mjs';
+import {invoiceBalance,checkoutPayload,reservationCheckoutPayload,elementPaymentPayload,reservationPaymentPayload,paymentElementConfig,safeCheckoutUrl,whopRequest,whopPaymentRequest} from '../_shared/whop.mjs';
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
 import {orderEmail,sendOrderEmail,sendOfflinePaymentEmail} from '../_shared/order-email.mjs';
 import {quoteEmail,sendQuoteEmail} from '../_shared/quote-email.mjs';
@@ -53,7 +53,14 @@ Deno.serve(async req=>{
   }
   if(body.action==='checkout-status'){
    if(Object.keys(body).some(k=>!['action','reservationId'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.reservationId||''))throw new AppError('Invalid checkout request');const r=await rpc('ce_checkout_read',{rid:body.reservationId});
-   if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);return respond({reservation:{id:r.id,status:r.status,amountCents:r.amount_cents,expiresAt:r.expires_at,orderId:r.confirmed_order_id||null}});
+   if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);if(['READY','PROCESSING'].includes(r.status)&&new Date(r.expires_at)<=new Date()){await rpc('ce_checkout_transition',{rid:r.id,expected:r.status,next_state:'EXPIRED',payment_id:r.payment_id||null,failure:'Checkout expired'});r.status='EXPIRED';}return respond({reservation:{id:r.id,status:r.status,amountCents:r.amount_cents,expiresAt:r.expires_at,orderId:r.confirmed_order_id||null}});
+  }
+  if(body.action==='checkout-hosted'){
+   if(Object.keys(body).some(k=>!['action','reservationId'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.reservationId||''))throw new AppError('Invalid checkout request');
+   const key=Deno.env.get('WHOP_COMPANY_API_KEY'),companyId=Deno.env.get('WHOP_COMPANY_ID');if(Deno.env.get('WHOP_PAYMENTS_ENABLED')!=='true'||!key||!companyId||!Deno.env.get('WHOP_WEBHOOK_SECRET'))throw new AppError('Online payments are not available yet.',503);
+   const r=await rpc('ce_checkout_read',{rid:body.reservationId});if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);if(r.status==='PROCESSING')return respond({status:'PROCESSING'});if(r.status!=='READY')throw new AppError('This checkout can no longer accept payment. Check its status before trying again.',409);if(new Date(r.expires_at)<=new Date())throw new AppError('Checkout expired. Review current price and availability.',409);
+   const checkout=await whopRequest('checkout_configurations',key,reservationCheckoutPayload(r,companyId));if(!/^ch_[A-Za-z0-9]+$/.test(checkout.id||'')||checkout.account_id!==companyId)throw new AppError('Whop returned an invalid checkout',502);const checkoutUrl=safeCheckoutUrl(checkout.purchase_url||checkout.url);
+   const changed=await rpc('ce_checkout_transition',{rid:r.id,expected:'READY',next_state:'PROCESSING',payment_id:checkout.id,failure:null});if(!changed)throw new AppError('Checkout changed while opening payment. Check its status before trying again.',409);return respond({url:checkoutUrl});
   }
   if(body.action==='checkout-abandon'){
    if(Object.keys(body).some(k=>!['action','reservationId'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.reservationId||''))throw new AppError('Invalid checkout request');
