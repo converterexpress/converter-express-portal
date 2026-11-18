@@ -49,7 +49,7 @@ Deno.serve(async req=>{
     resumeUrl:hosted?'https://whop.com/checkout/'+r.whop_payment_id+'/':null};
   }
   if(body.action==='checkout-reserve'){
-   if(Object.keys(body).some(k=>!['action','idempotencyKey','items','fulfillment','job','poNumber','notes','discountCode'].includes(k)))throw new AppError('Invalid checkout request');
+   if(Object.keys(body).some(k=>!['action','idempotencyKey','previousReservationId','items','fulfillment','job','poNumber','notes','discountCode'].includes(k)))throw new AppError('Invalid checkout request');
    const row=await rpc('ce_workspace_read'),active=await rpc('ce_checkout_active');
    const args={idempotencyKey:body.idempotencyKey,items:body.items,fulfillment:body.fulfillment,job:body.job||{},poNumber:body.poNumber||'',notes:body.notes||'',discountCode:body.discountCode||''};
    for(const held of active||[]){
@@ -63,8 +63,11 @@ Deno.serve(async req=>{
    for(const held of active||[]){
     if(held.user_id!==user!.id || !['READY','PROCESSING'].includes(held.status))continue;
     const previousCode=held.quote?.discountCodeLabel||'';
-    if(await checkoutRequestHash({...args,discountCode:previousCode,idempotencyKey:held.id})!==held.request_hash)continue;
-    if(held.amount_cents===current.totalCents)continue;
+    if(held.id!==body.previousReservationId){
+     if(await checkoutRequestHash({...args,discountCode:previousCode,idempotencyKey:held.id})!==held.request_hash)continue;
+     if(held.amount_cents===current.totalCents)continue;
+    }
+    await buildCheckoutReservation(row.data,user,args,active.filter((r:any)=>r.id!==held.id));
     if(held.status==='PROCESSING'){
      if(!/^ch_[A-Za-z0-9]+$/.test(held.whop_payment_id||''))throw new AppError('Your previous payment is being verified.',409);
      const key=Deno.env.get('WHOP_COMPANY_API_KEY'),account=Deno.env.get('WHOP_COMPANY_ID');
