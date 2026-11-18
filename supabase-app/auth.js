@@ -24,11 +24,35 @@ function clearPrivateState(preserveCart=false){state.user=null;state.accounts=[]
 function applyRemote(d){if(typeof d.paymentConfigured==='boolean')window.ceWhopReady=d.paymentConfigured;
  const previous=state.user?.id;state.user=d.user;
  for(const k of ['accounts','orders','storeSettings','discountCodes'])state[k]=d.data[k];state.crm=d.data.crm;restoreCatalogProducts(d.data.products);for(const p of d.data.products){const local=byNumber(p.partNumber);if(local)Object.assign(local,p);}
- if(previous&&previous!==state.user?.id)state.cart=[];
+ if(previous!==state.user?.id)restoreCustomerCart(state.user?.id);
  connectionUnavailable=false;workspaceRevision=d.revision;workspaceSaved=JSON.stringify(workspaceData());workspaceReady=true;workspaceConflict=false;renderHeader();return true;
 }
 async function loadRemote(){const d=await api({action:'bootstrap'});return applyRemote(d);}
-rememberPreviewUser=function(){try{sessionStorage.removeItem('ce-preview-user');sessionStorage.setItem('ce-preview-cart',JSON.stringify({owner:state.user?.id||null,lines:state.cart}));}catch{}};
+let savedCartSnapshot = '[]';
+function cartKey(owner){return 'ce-customer-cart:'+owner;}
+function restoreCustomerCart(owner){
+ state.cart=[];
+ if(owner)try{
+  const stored=localStorage.getItem(cartKey(owner));
+  const legacy=stored===null?JSON.parse(sessionStorage.getItem('ce-preview-cart')||'null'):null;
+  const lines=stored===null?(legacy?.owner===owner?legacy.lines:[]):JSON.parse(stored);
+  if(Array.isArray(lines))state.cart=lines.filter(l=>l&&byNumber(l.partId)&&Number.isSafeInteger(l.quantity)&&l.quantity>0).map(({partId,quantity})=>({partId,quantity}));
+  if(legacy?.owner===owner){localStorage.setItem(cartKey(owner),JSON.stringify(state.cart));sessionStorage.removeItem('ce-preview-cart');}
+ }catch{}
+ savedCartSnapshot=JSON.stringify(state.cart);
+}
+rememberPreviewUser=function(){
+ if(!state.user?.id)return;
+ const snapshot=JSON.stringify(state.cart);
+ if(snapshot===savedCartSnapshot)return;
+ try{localStorage.setItem(cartKey(state.user.id),snapshot);savedCartSnapshot=snapshot;}catch{}
+};
+window.addEventListener('pagehide',rememberPreviewUser);
+window.addEventListener('storage',event=>{
+ if(state.user?.id&&event.key===cartKey(state.user.id)){
+  restoreCustomerCart(state.user.id);renderHeader();if(location.hash==='#/cart')renderRoute();
+ }
+});
 crmAvailable=function(num){return state.user?.role==='ADMIN'?originalStock(num):(byNumber(num)?.available??null);};
 renderLogin=function(){authForm(false);};renderAdminLogin=function(){authForm(true);};
 function authForm(staff){
@@ -127,7 +151,7 @@ function connectionErrorPage(){app.innerHTML='<div class="page-narrow"><h1>Accou
 renderRoute=function(){if(location.hash.split('?')[0]==='#/verify')return verificationForm();if(connectionUnavailable&&!publicRoute())return connectionErrorPage();if(location.hash==='#/account/password')return passwordForm();if(location.hash.split('?')[0]==='#/admin/delivery-payments')return renderOfflinePayments();return originalRoute();};
 async function startSupabase(){
  clearPrivateState(true);if(publicRoute()&&!location.hash.startsWith('#/verify'))render(true);if(!configured){render();workspaceStatus('Supabase is not connected yet. Account access is disabled.',true);return;}
- try{const savedCart=JSON.parse(sessionStorage.getItem('ce-preview-cart')||'null');ce.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')setTimeout(()=>{location.hash='#/account/password';passwordForm();},0);if(event==='SIGNED_OUT'){clearPrivateState();nav('#/login');renderLogin();}});await ce.auth.getSession();if(await loadRemote()){const saved=savedCart;if(saved&&saved.owner===state.user?.id&&Array.isArray(saved.lines))state.cart=saved.lines.filter(l=>byNumber(l.partId)&&Number.isSafeInteger(l.quantity)&&l.quantity>0);render(true);}authReady=true;setInterval(saveWorkspace,1200);setInterval(rememberPreviewUser,1200);refreshTimer=setInterval(async()=>{if(!workspaceSaving&&!commandBusy&&state.user?.role==='CUSTOMER'&&location.hash==='#/orders'&&!document.activeElement?.matches('input,textarea,select'))try{if(await loadRemote())renderRoute();}catch{}},15000);
+ try{ce.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')setTimeout(()=>{location.hash='#/account/password';passwordForm();},0);if(event==='SIGNED_OUT'){clearPrivateState();nav('#/login');renderLogin();}});await ce.auth.getSession();if(await loadRemote()){render(true);}authReady=true;setInterval(saveWorkspace,1200);setInterval(rememberPreviewUser,1200);refreshTimer=setInterval(async()=>{if(!workspaceSaving&&!commandBusy&&state.user?.role==='CUSTOMER'&&location.hash==='#/orders'&&!document.activeElement?.matches('input,textarea,select'))try{if(await loadRemote())renderRoute();}catch{}},15000);
  }catch(e){clearPrivateState();connectionUnavailable=true;render(true);}
 }
 startSupabase();

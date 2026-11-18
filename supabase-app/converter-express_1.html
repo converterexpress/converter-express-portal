@@ -2140,6 +2140,7 @@ function addToCart(partNumber, qty, btn){
   const existing = state.cart.find(l=>l.partId===partNumber);
   if(existing) existing.quantity += qty;
   else state.cart.push({partId:partNumber, quantity:qty});
+  rememberPreviewUser();
   renderHeader();
   if(btn){ const orig=btn.textContent; btn.textContent='Added ✓'; setTimeout(()=>btn.textContent=orig, 1200); }
   return true;
@@ -2299,8 +2300,8 @@ function renderCart(){
     </div>`;
   renderHeader();
 }
-function setQty(id,qty){if(!Number.isSafeInteger(qty)||qty<1){render();return;}const error=crmStockError(state.cart.map(l=>l.partId===id?{...l,quantity:qty}:l));if(error){alert(error);render();return;}const l=state.cart.find(l=>l.partId===id);if(l){l.quantity=qty;render();}}
-function removeLine(id){ state.cart = state.cart.filter(l=>l.partId!==id); render(); }
+function setQty(id,qty){if(!Number.isSafeInteger(qty)||qty<1){render();return;}const error=crmStockError(state.cart.map(l=>l.partId===id?{...l,quantity:qty}:l));if(error){alert(error);render();return;}const l=state.cart.find(l=>l.partId===id);if(l){l.quantity=qty;rememberPreviewUser();render();}}
+function removeLine(id){ state.cart = state.cart.filter(l=>l.partId!==id); rememberPreviewUser(); render(); }
 
 // ---------- CHECKOUT ----------
 let checkoutMethod = 'SHIP';
