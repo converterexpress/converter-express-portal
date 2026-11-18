@@ -13,13 +13,18 @@ const profileKeys=['shopName','contactName','phone','addressLine1','addressLine2
 const publicSettings=['phone','email','pickupAddress','pickupAvailable','pickupHours','serviceArea','shippingFlatCents','taxRatePercent','customSeries','deletedSeries'];
 const accountKeys=['id','email','role','status',...profileKeys,'savedParts','paymentTermsDays'];
 const orderKeys=['id','invoiceNumber','shopEmail','shopName','subtotalCents','shippingCents','discountCents','discountCodeLabel','taxCents','cardFeeCents','totalCents','job','poNumber','fulfillment','status','fulfillmentStage','paymentStatus','amountPaidCents','dueDate','cancelled','createdAt','emailSent','deliveryDate','deliveryWindow','deliveryNote','paymentMethod','paymentReference','invoiceClosedAt','refunds','cancellationReview','cancelledAt','cancellationReason'];
+const fourSeriesCategory='Universal Converters — 4 Series';
+const legacyFourSeries=['Universal Converters — 4003 Series','Universal Converters — 4004 Series','Universal Converters — 4005 Series','Universal Converters — 4006 Series','Universal Converters — 4009 Series'];
+const fourSeriesNumbers=['4003','4004','4005','4006','4009'];
 const sameEmail=(a,b)=>String(a).trim().toLowerCase()===String(b).trim().toLowerCase();
+function migrateCatalog(source){const data=copy(source),existing=new Map(data.products.map(p=>[p.partNumber,p]));for(const partNumber of fourSeriesNumbers){const prior=existing.get(partNumber)||{};const product={...prior,partNumber,name:fourSeriesCategory+' — Part '+partNumber,category:fourSeriesCategory,description:'Universal-fit catalytic converter, CARB EO D-724-6 (4 Series). Confirm the exact vehicle application, converter position, dimensions, and installation requirements before ordering.',manufacturer:'Converter Unlimited',approvalManufacturer:'Converter Unlimited, Inc.',priceCents:33000,pricePending:false,inStock:prior.inStock??false};if(existing.has(partNumber))Object.assign(existing.get(partNumber),product);else data.products.push(product);}data.storeSettings.customSeries=[...new Set((data.storeSettings.customSeries||[]).filter(series=>!legacyFourSeries.includes(series)).concat(fourSeriesCategory))];data.storeSettings.deletedSeries=(data.storeSettings.deletedSeries||[]).filter(series=>series!==fourSeriesCategory);return data;}
 export function principal(authUser,staffIds,claims){return authUser?{id:authUser.id,email:authUser.email,admin:staffIds.includes(authUser.id),aal:claims?.aal||'aal1'}:null;}
 function assertAdmin(user){if(!user?.admin)fail('Administrator access required',403);}
 function account(data,user,approved=true){if(!user)fail('Sign in to continue',401);const a=data.accounts.find(a=>a.id===user.id&&sameEmail(a.email,user.email));if(!a)fail('Complete your shop application',403);if(approved&&a.status!=='APPROVED')fail('An approved shop account is required',403);return a;}
 function available(data,num){const count=data.crm?.inventory?.[num]?.onHand;if(!int(count))return null;return count-data.orders.filter(o=>!o.cancelled&&!o.inventoryIssued&&!['SHIPPED','DELIVERED'].includes(o.fulfillmentStage)).reduce((n,o)=>n+o.lines.filter(l=>l.partId===num).reduce((s,l)=>s+l.quantity,0),0);}
 function customerOrder(o){const result=pick(o,orderKeys);result.lines=(o.lines||[]).map(l=>pick(l,['partId','name','quantity','priceCents']));result.deliveryHistory=(o.deliveryHistory||[]).map(h=>pick(h,['stage','date','window','note','at']));result.serviceRequests=(o.serviceRequests||[]).map(r=>pick(r,['id','type','partNumber','message','photos','status','createdAt','updatedAt','response','resolvedAt']));return result;}
 export function project(data,user){
+ data=migrateCatalog(data);
  if(user?.admin){assertAdmin(user);return {user:{id:user.id,email:user.email,role:'ADMIN',status:'APPROVED',shopName:'Converter Express'},data:copy(data)};}
  const a=user&&data.accounts.find(a=>a.id===user.id&&sameEmail(a.email,user.email));const approved=a?.status==='APPROVED';
  const products=data.products.map(p=>{const price=approved?(a.priceOverrides?.[p.partNumber]??p.priceCents):0;return {...pick(p,['partNumber','name','category','description','manufacturer','approvalManufacturer']),priceCents:price,pricePending:!approved||(a.priceOverrides?.[p.partNumber]==null&&p.pricePending),costCents:null,inStock:available(data,p.partNumber)>0,stockKnown:available(data,p.partNumber)!==null,available:approved?available(data,p.partNumber):null};});
@@ -92,7 +97,7 @@ export function validateAdminRemovals(previous,next){
 }
 export function command(source,user,args){
  if(!user)fail('Sign in to continue',401);if(user.admin)assertAdmin(user);
- let data=copy(source);let result;
+ let data=migrateCatalog(source);let result;
  if(args.action==='record-payment'){
   assertAdmin(user);exact(args,['action','orderId','amountPaidCents','method','reference','dueDate','close']);const o=data.orders.find(o=>o.id===args.orderId);if(!o||o.cancelled)fail('Active invoice not found',404);
   if(o.paymentCheckout||o.paymentReview)fail('Reconcile the active Whop checkout before recording another payment',409);
