@@ -58,6 +58,31 @@ Deno.serve(async req=>{
     const current=command(row.data,user,{...args,action:'order'}).result;
     if(current.totalCents===held.amount_cents)return respond({reservation:reservationView(held)});
    }
+   // A discount edit replaces the same buyer's unpaid checkout for the same cart.
+   const current=command(row.data,user,{...args,action:'order'}).result;
+   for(const held of active||[]){
+    if(held.user_id!==user!.id || !['READY','PROCESSING'].includes(held.status))continue;
+    const previousCode=held.quote?.discountCodeLabel||'';
+    if(await checkoutRequestHash({...args,discountCode:previousCode,idempotencyKey:held.id})!==held.request_hash)continue;
+    if(held.amount_cents===current.totalCents)continue;
+    if(held.status==='PROCESSING'){
+     if(!/^ch_[A-Za-z0-9]+$/.test(held.whop_payment_id||''))throw new AppError('Your previous payment is being verified.',409);
+     const key=Deno.env.get('WHOP_COMPANY_API_KEY'),account=Deno.env.get('WHOP_COMPANY_ID');
+     const config=await whopRequest('checkout_configurations/'+held.whop_payment_id,key);
+     if(config.account_id!==account || config.metadata?.ce_reference!==held.payment_reference || !/^plan_[A-Za-z0-9]+$/.test(config.plan?.id||''))throw new AppError('Unable to verify the previous checkout.',409);
+     const paymentsPath='payments?account_id='+account+'&plan_id='+config.plan.id+'&first=1';
+     const ensureUnpaid=async()=>{
+      const payments=await whopRequest(paymentsPath,key);
+      if(!Array.isArray(payments.data)||payments.data.length)throw new AppError('Your previous checkout has payment activity. Check its status before paying again.',409);
+     };
+     await ensureUnpaid();
+     const archived=await fetch('https://api.whop.com/api/v1/plans/'+config.plan.id,{method:'PATCH',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','Api-Version-Date':'2026-09-29'},body:JSON.stringify({visibility:'archived',stock:0,unlimited_stock:false}),signal:AbortSignal.timeout(20000)});
+     if(!archived.ok)throw new AppError('Unable to close your previous payment link. Please retry.',502);
+     await ensureUnpaid();
+    }
+    await rpc('ce_checkout_transition',{rid:held.id,expected:held.status,next_state:'EXPIRED',payment_id:null,failure:'Replaced after discount changed'});
+    held.status='EXPIRED';
+   }
    const reservation=await buildCheckoutReservation(row.data,user,args,active||[]);
    const saved=await rpc('ce_checkout_reserve',{rid:reservation.id,uid:user!.id,email:user!.email,body:reservation.quote,hash:reservation.requestHash,reference:reservation.paymentReference,amount:reservation.amountCents,expires:reservation.expiresAt});
    return respond({reservation:{id:saved.id,status:saved.status,amountCents:saved.amount_cents,expiresAt:saved.expires_at}});
