@@ -1000,12 +1000,17 @@ const REAL_PARTS = JSON.parse(document.getElementById('real-catalog-data').textC
 // Hybrid, Universal) and independent of literal part-number magnitude (the
 // 201/202 series uses 6-digit numbers despite being the lowest series).
 // This drives every part/category listing site-wide so browsing anywhere
-// reads 201, then 202, then 1000/2000, then 5000, 5900, 7000, 8000, 92000 — never
-// mixed or reversed.
+// reads 201, 202, 1000/2000, 4003–4009, 5000, 5900, 7000, 8000, then
+// 92000 — never mixed or reversed.
 const CATEGORY_ORDER = [
   'Universal Converters — 201 Series',
   'Universal Converters — 202 Series',
   'Hybrid Converters — 1000/2000 Series',
+  'Universal Converters — 4003 Series',
+  'Universal Converters — 4004 Series',
+  'Universal Converters — 4005 Series',
+  'Universal Converters — 4006 Series',
+  'Universal Converters — 4009 Series',
   'Universal Converters — 5000 Series',
   'Universal Converters — 5900 Series',
   'Backorder — 7000 Series',
@@ -1026,7 +1031,10 @@ function comparePartNumbers(a,b){
 }
 REAL_PARTS.sort((a,b)=> categoryRank(a.category)-categoryRank(b.category) || comparePartNumbers(a.partNumber,b.partNumber));
 const PARTS = REAL_PARTS;
-const CATEGORIES = [...new Set(PARTS.map(p=>p.category))];
+// Keep approved empty series available in the admin so parts can be added to
+// them. Customer-facing series menus already hide categories until they have
+// at least one part, then surface them automatically everywhere.
+const CATEGORIES = [...new Set([...CATEGORY_ORDER,...PARTS.map(p=>p.category)])];
 
 // admin account (not a shop, no CRM profile)
 const ADMIN_USER = { shopName:'Converter Express (Admin)', email:'admin@converterexpress.com', status:'APPROVED', role:'ADMIN' };
