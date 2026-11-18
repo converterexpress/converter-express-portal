@@ -167,6 +167,15 @@ deleteManualRecord=async function(kind,id,partNumber,button){
  }catch(e){status.textContent=e.message;}finally{button.disabled=false;}
 };
 
+async function changeOrderMethod(select){
+ const cell=select.closest('td'), order=state.orders.find(o=>o.id===select.dataset.order);
+ if(!order)return;
+ select.disabled=true;
+ const saved=await savedAdminAction({action:'set-payment-method',orderId:order.id,method:select.value},cell,'[role=status]');
+ select.disabled=false;
+ if(saved)renderAdminOrders();
+ else select.value=order.paymentMethod||'';
+}
 async function savedAdminAction(body,form,statusSelector){
  if(!requireAdmin()||commandBusy||workspaceSaving)return false;const status=form.querySelector(statusSelector);const buttons=[...form.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);if(status)status.textContent='Saving…';
  try{await saveWorkspace();if(workspaceConflict||JSON.stringify(workspaceData())!==workspaceSaved)throw Error('Save pending changes or reload before continuing.');await shopCommand(body);return true;}catch(e){if(status)status.textContent=e.message;return false;}finally{buttons.forEach(b=>b.disabled=false);}

@@ -148,6 +148,9 @@ footer.site.footer-refined{background:#191f23;color:#bac2c7;padding:0;border-top
   .page .btn,.page-banner .btn{font-size:18px;padding:18px 30px;min-height:58px;}
   .page .field,.page-banner .field{font-size:18px;min-height:58px;}
 }
+.order-filter-bar{display:grid;grid-template-columns:minmax(0,220px) minmax(0,200px) auto 1fr;align-items:end;gap:12px;background:white;border:1px solid #d8dee5;border-radius:10px;padding:16px;margin:16px 0 22px}
+.order-filter-bar label{display:grid;gap:5px;font-size:12px;font-weight:600}.order-filter-bar .btn{min-height:40px}.order-filter-bar .btn:last-child{justify-self:end}
+@media(max-width:680px){.order-filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.order-filter-bar .field{min-width:0;width:100%}.order-filter-bar .btn:last-child{justify-self:stretch}}
 </style></head><body>
 <meta charset="utf-8" />
 <title>Converter Express Demo</title>
@@ -3735,13 +3738,13 @@ function renderAdminOrders(){
   app.innerHTML = `
     <div class="page admin-shell">
       ${adminHeaderHtml('orders')}
-      <div class="admin-page-tools" style="display:flex;flex-wrap:wrap;align-items:end;gap:12px">
+      <div class="order-filter-bar">
         <label>Payment status<select class="field" onchange="orderFilters.payment=this.value;renderAdminOrders()">
           <option value="all">All orders</option><option value="paid" ${orderFilters.payment==='paid'?'selected':''}>Paid</option>
           <option value="outstanding" ${orderFilters.payment==='outstanding'?'selected':''}>Not fully paid</option></select></label>
         <label>Order month<input class="field" type="month" value="${esc(orderFilters.month)}" onchange="orderFilters.month=this.value;renderAdminOrders()"></label>
         <button class="btn btn-outline btn-sm" onclick="orderFilters.month='';orderFilters.payment='all';renderAdminOrders()">Clear filters</button>
-        <button class="btn btn-outline btn-sm" onclick="downloadOrdersCsv()" ${orders.length?'':'disabled'}>Download CSV</button>
+        <button class="btn btn-primary btn-sm" onclick="downloadOrdersCsv()" ${orders.length?'':'disabled'}>Download CSV</button>
       </div>
       <h2 style="font-size:18px;">Orders (${orders.length})</h2>
       ${orders.length===0 ? `<p class="muted" style="margin-top:10px;">No orders match these filters.</p>` : `
@@ -3763,7 +3766,10 @@ function renderAdminOrders(){
                       ${PAYMENT_STATUSES.map(s=>`<option value="${s.id}" ${o.paymentStatus===s.id?'selected':''}>${esc(s.label)}</option>`).join('')}
                     </select>
                   </td>
-                  <td>${esc(o.paymentMethod||'—')}</td>
+                  <td><select class="field" aria-label="Payment method for ${esc(o.invoiceNumber)}" data-order="${esc(o.id)}" onchange="changeOrderMethod(this)">
+                    <option value="" disabled ${o.paymentMethod?'':'selected'}>Choose method</option>
+                    ${[...new Set([o.paymentMethod,'Cash','Check','Card','Bank transfer','ACH','Zelle','Whop','Other'].filter(Boolean))].map(m=>`<option ${m===o.paymentMethod?'selected':''}>${esc(m)}</option>`).join('')}
+                  </select><small role="status"></small></td>
                   <td>${o.cancelled ? `<span class="badge badge-bad">Cancelled</span>` : `<span class="badge badge-good">Active</span>`}</td>
                   <td>${o.cancelled
                     ? `<button class="btn btn-outline btn-sm" onclick="reinstateOrder('${o.id}')">Reinstate</button>`
@@ -4579,6 +4585,6 @@ function saveDeliveryTracking(id,form){if(state.user?.role!=='ADMIN'||!form.repo
 </script>
 <script src="./vendor/supabase-2.117.2.js"></script>
 <script src="./config.js"></script>
-<script src="./auth.js?v=direct-checkout-2"></script>
+<script src="./auth.js?v=order-method-1"></script>
 
 </body></html>

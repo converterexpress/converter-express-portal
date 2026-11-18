@@ -98,7 +98,18 @@ export function validateAdminRemovals(previous,next){
 export function command(source,user,args){
  if(!user)fail('Sign in to continue',401);if(user.admin)assertAdmin(user);
  let data=migrateCatalog(source);let result;
- if(args.action==='record-payment'){
+ if(args.action==='set-payment-method'){
+  assertAdmin(user);
+  exact(args,['action','orderId','method']);
+  const order=data.orders.find(o=>o.id===args.orderId);
+  if(!order)fail('Order not found',404);
+  if(!['Cash','Check','Card','Bank transfer','ACH','Zelle','Whop','Other'].includes(args.method))fail('Choose a payment method');
+  if(order.paymentMethod!==args.method){
+   data.crm.activities.push({id:crypto.randomUUID(),type:'Payment',actorId:user.id,at:new Date().toISOString(),text:order.invoiceNumber+' · Payment method: '+(order.paymentMethod||'Unrecorded')+' → '+args.method});
+   order.paymentMethod=args.method;
+  }
+  result={orderId:order.id};
+ }else if(args.action==='record-payment'){
   assertAdmin(user);exact(args,['action','orderId','amountPaidCents','method','reference','dueDate','close']);const o=data.orders.find(o=>o.id===args.orderId);if(!o||o.cancelled)fail('Active invoice not found',404);
   if(o.paymentCheckout||o.paymentReview)fail('Reconcile the active Whop checkout before recording another payment',409);
   const paid=args.amountPaidCents;if(!int(paid)||paid>o.totalCents)fail('Invalid paid amount');if(typeof args.close!=='boolean')fail('Invalid invoice close request');if(args.close&&paid!==o.totalCents)fail('Record the full payment before closing an invoice');
