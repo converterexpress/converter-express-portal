@@ -994,8 +994,8 @@ article.part-card .part-body{padding:20px;gap:0;flex:1;}
 // discontinued.
 // Data lives in the #real-catalog-data JSON block above.
 const REAL_PARTS = JSON.parse(document.getElementById('real-catalog-data').textContent);
-const FOUR_SERIES_CATEGORY='Universal Converters — 4 Series';
-for(const partNumber of ['4003','4004','4005','4006','4009'])REAL_PARTS.push({partNumber,name:FOUR_SERIES_CATEGORY+' — Part '+partNumber,category:FOUR_SERIES_CATEGORY,priceCents:33000,pricePending:false,costCents:null,coreChargeCents:0,inStock:false,imageColor:'#5B6270',manufacturer:'Converter Unlimited',approvalManufacturer:'Converter Unlimited, Inc.',description:'Universal-fit catalytic converter, CARB EO D-724-6 (4 Series). Confirm the exact vehicle application, converter position, dimensions, and installation requirements before ordering.',fitments:[]});
+const FOUR_SERIES_CATEGORY='Universal Converters — 4000 Series';
+for(const partNumber of ['4003','4004','4005','4006','4009'])REAL_PARTS.push({partNumber,name:FOUR_SERIES_CATEGORY+' — Part '+partNumber,category:FOUR_SERIES_CATEGORY,priceCents:33000,pricePending:false,costCents:null,coreChargeCents:0,inStock:false,imageColor:'#5B6270',manufacturer:'Converter Unlimited',approvalManufacturer:'Converter Unlimited, Inc.',description:'Universal-fit catalytic converter, CARB EO D-724-6 (4000 Series). Confirm the exact vehicle application, converter position, dimensions, and installation requirements before ordering.',fitments:[]});
 
 // Canonical series order — ascending by series number, independent of the
 // raw JSON order (which happened to be alphabetical by label: Backorder,
@@ -1008,7 +1008,7 @@ const CATEGORY_ORDER = [
   'Universal Converters — 201 Series',
   'Universal Converters — 202 Series',
   'Hybrid Converters — 1000/2000 Series',
-  'Universal Converters — 4 Series',
+  'Universal Converters — 4000 Series',
   'Universal Converters — 5000 Series',
   'Universal Converters — 5900 Series',
   'Backorder — 7000 Series',
