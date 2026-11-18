@@ -148,9 +148,11 @@ footer.site.footer-refined{background:#191f23;color:#bac2c7;padding:0;border-top
   .page .btn,.page-banner .btn{font-size:18px;padding:18px 30px;min-height:58px;}
   .page .field,.page-banner .field{font-size:18px;min-height:58px;}
 }
-.order-filter-bar{display:grid;grid-template-columns:minmax(0,220px) minmax(0,200px) auto 1fr;align-items:end;gap:12px;background:white;border:1px solid #d8dee5;border-radius:10px;padding:16px;margin:16px 0 22px}
-.order-filter-bar label{display:grid;gap:5px;font-size:12px;font-weight:600}.order-filter-bar .btn{min-height:40px}.order-filter-bar .btn:last-child{justify-self:end}
-@media(max-width:680px){.order-filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.order-filter-bar .field{min-width:0;width:100%}.order-filter-bar .btn:last-child{justify-self:stretch}}
+.order-filter-bar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:14px 20px;background:#fff;border:1px solid #d8dee5;border-radius:12px;padding:18px;margin:16px 0 22px}
+.order-filter-bar fieldset{border:0;padding:0;margin:0;min-width:0}.order-filter-bar legend,.order-month{font-size:12px;font-weight:600}.order-filter-bar legend{padding:0;margin-bottom:6px}.order-month{display:grid;gap:6px}.order-month input{height:44px;min-width:155px}
+.order-segments{display:flex;background:#eef0f2;border-radius:9px;padding:3px}.order-segments label{position:relative;flex:1}.order-segments input{position:absolute;opacity:0}.order-segments span{display:grid;place-items:center;min-height:38px;padding:0 14px;border-radius:7px;color:#495362;font-size:13px;white-space:nowrap;cursor:pointer}.order-segments input:checked+span{background:white;color:#181c20;font-weight:650;box-shadow:0 1px 4px #17233130}.order-segments input:focus-visible+span{outline:2px solid currentColor;outline-offset:-2px}
+.order-filter-bar button{min-height:44px}.order-filter-bar .order-export{margin-left:auto}@media(max-width:620px){.order-filter-bar fieldset{width:100%}.order-month{flex:1}.order-filter-bar .order-export{width:100%}}
+
 </style></head><body>
 <meta charset="utf-8" />
 <title>Converter Express Demo</title>
@@ -3739,12 +3741,12 @@ function renderAdminOrders(){
     <div class="page admin-shell">
       ${adminHeaderHtml('orders')}
       <div class="order-filter-bar">
-        <label>Payment status<select class="field" onchange="orderFilters.payment=this.value;renderAdminOrders()">
-          <option value="all">All orders</option><option value="paid" ${orderFilters.payment==='paid'?'selected':''}>Paid</option>
-          <option value="outstanding" ${orderFilters.payment==='outstanding'?'selected':''}>Not fully paid</option></select></label>
-        <label>Order month<input class="field" type="month" value="${esc(orderFilters.month)}" onchange="orderFilters.month=this.value;renderAdminOrders()"></label>
-        <button class="btn btn-outline btn-sm" onclick="orderFilters.month='';orderFilters.payment='all';renderAdminOrders()">Clear filters</button>
-        <button class="btn btn-primary btn-sm" onclick="downloadOrdersCsv()" ${orders.length?'':'disabled'}>Download CSV</button>
+        <fieldset><legend>Payment status</legend><div class="order-segments">
+          ${[['all','All'],['paid','Paid'],['outstanding','Not fully paid']].map(([value,label])=>`<label><input id="order-filter-${value}" type="radio" name="order-payment" value="${value}" ${orderFilters.payment===value?'checked':''} onchange="orderFilters.payment=this.value;renderAdminOrders();document.getElementById(this.id).focus()"><span>${label}</span></label>`).join('')}
+        </div></fieldset>
+        <label class="order-month">Order month<input id="order-filter-month" class="field" type="month" value="${esc(orderFilters.month)}" onchange="orderFilters.month=this.value;renderAdminOrders();document.getElementById(this.id).focus()"></label>
+        ${orderFilters.month||orderFilters.payment!=='all'?`<button class="btn btn-outline btn-sm" onclick="orderFilters.month='';orderFilters.payment='all';renderAdminOrders();document.getElementById('order-filter-all').focus()">Clear filters</button>`:''}
+        <button class="btn btn-primary btn-sm order-export" onclick="downloadOrdersCsv()" ${orders.length?'':'disabled'}>Download CSV</button>
       </div>
       <h2 style="font-size:18px;">Orders (${orders.length})</h2>
       ${orders.length===0 ? `<p class="muted" style="margin-top:10px;">No orders match these filters.</p>` : `
