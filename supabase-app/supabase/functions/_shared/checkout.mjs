@@ -12,8 +12,14 @@ export function reservationAvailability(data,reservations,partNumber,now=new Dat
 }
 export async function buildCheckoutReservation(data,user,args,reservations=[],now=new Date()){
  const paymentMethod=args.paymentMethod||'WHOP';if(!['WHOP','CASH','CHECK'].includes(paymentMethod))throw new AppError('Invalid payment method');
- const orderArgs={...args};delete orderArgs.paymentMethod;const shadow=structuredClone(data);for(const r of reservations.filter(r=>active(r,now)))shadow.orders.push({id:'reservation-'+r.id,shopEmail:'reserved@example.invalid',cancelled:false,inventoryIssued:false,fulfillmentStage:'AWAITING_PARTS',lines:r.quote.lines});
- const next=command(shadow,user,{...orderArgs,action:'order'}),draft=next.result;
+ const orderArgs={...args};
+ delete orderArgs.paymentMethod;
+ const draft=command(data,user,{...orderArgs,action:'order'}).result;
+ for(const line of draft.lines){
+  if(line.quantity>reservationAvailability(data,reservations,line.partId,now)){
+   throw new AppError('Requested quantity is not available',409);
+  }
+ }
  return {id:args.idempotencyKey,userId:user.id,shopEmail:user.email,paymentMethod,requestNumber:'PAY-'+args.idempotencyKey.replaceAll('-','').slice(0,12).toUpperCase(),status:paymentMethod==='WHOP'?'READY':'AWAITING_OFFLINE_PAYMENT',requestHash:await checkoutRequestHash(args),paymentReference:crypto.randomUUID(),amountCents:draft.totalCents,expiresAt:paymentMethod==='WHOP'?new Date(now.getTime()+15*60*1000).toISOString():null,quote:{...draft,id:null,invoiceNumber:null,paymentStatus:null,createdAt:now.toISOString()}};
 }
 export function buildPaidOrder(reservation,payment,orderId=crypto.randomUUID()){

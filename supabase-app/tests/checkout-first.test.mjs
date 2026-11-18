@@ -1,6 +1,15 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {checkoutRequestHash,buildCheckoutReservation,reservationAvailability,buildPaidOrder} from '../supabase/functions/_shared/checkout.mjs';
 const user={id:'u1',email:'shop@example.test',admin:false};
+test('a $440 checkout succeeds when another reservation holds one of two units',async()=>{
+ const workspace=data();
+ workspace.products[0].priceCents=44000;
+ workspace.crm.inventory.P1.onHand=2;
+ const first=await buildCheckoutReservation(workspace,user,args);
+ const second=await buildCheckoutReservation(workspace,user,{...args,idempotencyKey:crypto.randomUUID()},[first]);
+ assert.equal(second.amountCents,44000);
+ assert.equal(reservationAvailability(workspace,[first,second],'P1'),0);
+});
 const data=()=>({accounts:[{id:'u1',email:user.email,role:'CUSTOMER',status:'APPROVED',shopName:'Shop',paymentTermsDays:0}],products:[{partNumber:'P1',name:'Part',priceCents:10000,pricePending:false,costCents:4000,inStock:true}],orders:[],discountCodes:[],storeSettings:{shippingFlatCents:0,actualShippingCostCents:0,taxRatePercent:0,pickupAvailable:false},crm:{quotes:[],tasks:[],purchases:[],activities:[],inventory:{P1:{onHand:1,minimum:0}}}});
 const args={idempotencyKey:'11111111-1111-4111-8111-111111111111',items:[{partId:'P1',quantity:1}],fulfillment:{method:'SHIP',address:{line1:'1 St',line2:'',city:'Sacramento',state:'CA',postalCode:'95814'}},job:{},poNumber:'',notes:'',discountCode:''};
 test('hash is stable, binds payload, and reservations consume stock',async()=>{assert.equal(await checkoutRequestHash(args),await checkoutRequestHash(structuredClone(args)));assert.notEqual(await checkoutRequestHash(args),await checkoutRequestHash({...args,notes:'changed'}));assert.notEqual(await checkoutRequestHash(args),await checkoutRequestHash({...args,items:[{partId:'P1',quantity:2}]}));const r=await buildCheckoutReservation(data(),user,args,[],new Date('2026-10-09T00:00:00Z'));assert.equal(r.amountCents,10000);assert.equal(reservationAvailability(data(),[r],'P1',new Date('2026-10-09T00:01:00Z')),0);await assert.rejects(()=>buildCheckoutReservation(data(),user,args,[r],new Date('2026-10-09T00:01:00Z')),/available/);});
