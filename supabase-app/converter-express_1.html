@@ -3478,7 +3478,7 @@ function ordersToCsv(orders){
     const refundedCents=(o.refunds||[]).filter(r=>r.status==='succeeded').reduce((sum,r)=>sum+r.amountCents,0);
     const amountPaidCents=o.amountPaidCents??(o.paymentStatus==='PAID'?o.totalCents:0);
     rows.push([
-      new Date(o.createdAt).toISOString().slice(0,10),
+      orderReportDay.format(new Date(o.createdAt)),
       o.id,
       o.invoiceNumber,
       o.shopName,
@@ -3505,14 +3505,23 @@ function ordersToCsv(orders){
   });
   return rows.join('\n');
 }
+const orderReportDay = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'});
+const orderFilters = {payment:'all',month:''};
+function filteredAdminOrders(){
+  return state.orders.filter(order=>{
+    const paid=order.paymentStatus==='PAID';
+    if(orderFilters.payment==='paid'&&!paid || orderFilters.payment==='outstanding'&&paid)return false;
+    return !orderFilters.month || orderReportDay.format(new Date(order.createdAt)).startsWith(orderFilters.month+'-');
+  }).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+}
 function downloadOrdersCsv(){
-  const orders = [...state.orders].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const orders = filteredAdminOrders();
   const csv = ordersToCsv(orders);
   try{
     const blob = new Blob([csv], {type:'text/csv'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'orders.csv';
+    a.href = url; a.download = ['orders',orderFilters.month,orderFilters.payment==='all'?'':orderFilters.payment].filter(Boolean).join('-')+'.csv';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 2000);
   }catch(e){
@@ -3722,21 +3731,27 @@ function submitAdminOrder(){
 
 function renderAdminOrders(){
   if(!requireAdmin()) return;
-  const orders = [...state.orders].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const orders = filteredAdminOrders();
   app.innerHTML = `
     <div class="page admin-shell">
       ${adminHeaderHtml('orders')}
-      <div class="admin-page-tools"><button class="btn btn-outline btn-sm" onclick="downloadOrdersCsv()">Download CSV</button></div>
-      <p class="muted" style="font-size:12.5px;margin-top:-14px;margin-bottom:10px;">"+ New order" logs an order taken by phone, email, or in person, for customers who didn't order through the website.</p>
-      <h2 style="font-size:18px;">All orders (${orders.length})</h2>
-      ${orders.length===0 ? `<p class="muted" style="margin-top:10px;">No orders yet.</p>` : `
+      <div class="admin-page-tools" style="display:flex;flex-wrap:wrap;align-items:end;gap:12px">
+        <label>Payment status<select class="field" onchange="orderFilters.payment=this.value;renderAdminOrders()">
+          <option value="all">All orders</option><option value="paid" ${orderFilters.payment==='paid'?'selected':''}>Paid</option>
+          <option value="outstanding" ${orderFilters.payment==='outstanding'?'selected':''}>Not fully paid</option></select></label>
+        <label>Order month<input class="field" type="month" value="${esc(orderFilters.month)}" onchange="orderFilters.month=this.value;renderAdminOrders()"></label>
+        <button class="btn btn-outline btn-sm" onclick="orderFilters.month='';orderFilters.payment='all';renderAdminOrders()">Clear filters</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadOrdersCsv()" ${orders.length?'':'disabled'}>Download CSV</button>
+      </div>
+      <h2 style="font-size:18px;">Orders (${orders.length})</h2>
+      ${orders.length===0 ? `<p class="muted" style="margin-top:10px;">No orders match these filters.</p>` : `
         <div style="margin-top:12px;overflow-x:auto;">
           <table class="admin-table">
-            <thead><tr><th>Date</th><th>Invoice</th><th>Shop</th><th>Channel</th><th>Fulfillment</th><th>Items</th><th>Total</th><th>Payment</th><th>Stage</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Date</th><th>Invoice</th><th>Shop</th><th>Channel</th><th>Fulfillment</th><th>Items</th><th>Total</th><th>Payment status</th><th>Payment method</th><th>Status</th><th></th></tr></thead>
             <tbody>
               ${orders.map(o=>{ const acct = accountForEmail(o.shopEmail); return `
                 <tr style="${o.cancelled?'opacity:.55;':''}">
-                  <td>${fmtDate(o.createdAt)}</td>
+                  <td>${orderReportDay.format(new Date(o.createdAt))}</td>
                   <td><a href="#/orders/${o.id}" class="link-accent" style="font-family:monospace;font-size:12px;">${o.invoiceNumber}</a></td>
                   <td>${acct ? `<a href="#/admin/accounts/${encodeURIComponent(acct.id)}" class="link-accent">${esc(o.shopName)}</a>` : esc(o.shopName)}</td>
                   <td><span class="badge badge-line">${o.channel==='PHONE'?'Phone':'Online'}</span></td>
@@ -3748,11 +3763,7 @@ function renderAdminOrders(){
                       ${PAYMENT_STATUSES.map(s=>`<option value="${s.id}" ${o.paymentStatus===s.id?'selected':''}>${esc(s.label)}</option>`).join('')}
                     </select>
                   </td>
-                  <td>
-                    <select class="field" style="padding:5px 28px 5px 8px;font-size:12px;width:auto;" onchange="setOrderStage('${o.id}', this.value)">
-                      ${ORDER_STAGES.map(s=>`<option value="${s.id}" ${o.fulfillmentStage===s.id?'selected':''}>${esc(s.label)}</option>`).join('')}
-                    </select>
-                  </td>
+                  <td>${esc(o.paymentMethod||'—')}</td>
                   <td>${o.cancelled ? `<span class="badge badge-bad">Cancelled</span>` : `<span class="badge badge-good">Active</span>`}</td>
                   <td>${o.cancelled
                     ? `<button class="btn btn-outline btn-sm" onclick="reinstateOrder('${o.id}')">Reinstate</button>`
