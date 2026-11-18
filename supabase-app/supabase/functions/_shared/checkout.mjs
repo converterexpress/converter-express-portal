@@ -17,6 +17,13 @@ export async function buildCheckoutReservation(data,user,args,reservations=[],no
  const draft=command(data,user,{...orderArgs,action:'order'}).result;
  for(const line of draft.lines){
   if(line.quantity>reservationAvailability(data,reservations,line.partId,now)){
+   const ownHolds=reservations.filter(r=>r.user_id===user.id && active(r,now) &&
+    ['READY','PROCESSING'].includes(r.status) && r.quote.lines.some(l=>l.partId===line.partId));
+   if(ownHolds.length && line.quantity<=reservationAvailability(data,reservations.filter(r=>!ownHolds.includes(r)),line.partId,now)){
+    const expiry=Math.max(...ownHolds.map(r=>Date.parse(r.expires_at)));
+    const time=new Date(expiry).toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'numeric',minute:'2-digit',second:'2-digit'});
+    throw new AppError('Your earlier checkout holds part '+line.partId+' until '+time+' Pacific. Continue after that time to use your updated total.',409);
+   }
    throw new AppError('Requested quantity is not available',409);
   }
  }
