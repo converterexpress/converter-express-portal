@@ -99,7 +99,11 @@ function showOfflinePaymentRequest(reservation){rememberCheckout(null);orderRequ
 let checkoutSubmitting=false;
 fakePay=async function(){const button=document.getElementById('payBtn');if(button.disabled||checkoutSubmitting)return;checkoutSubmitting=true;button.disabled=true;try{if(checkoutPaymentMethod!=='WHOP'){orderRequestId ||=crypto.randomUUID();const result=await api({action:'checkout-offline',idempotencyKey:orderRequestId,paymentMethod:checkoutPaymentMethod,...orderInputs()});return showOfflinePaymentRequest(result.reservation);}const inputs=orderInputs(), signature=JSON.stringify(inputs);let existing=savedCheckout(),reservation,previousReservationId;if(existing){reservation=(await api({action:'checkout-status',reservationId:existing.id})).reservation;if(['FAILED','EXPIRED'].includes(reservation.status)){rememberCheckout(null);orderRequestId=null;existing=null;}}if(existing && ['READY','PROCESSING'].includes(reservation.status) && (existing.signature!==signature || reservation.amountCents!==Number(document.getElementById('totalsCard').dataset.quotedCents))){previousReservationId=existing.id;existing=null;orderRequestId=null;}if(!existing){orderRequestId ||=crypto.randomUUID();reservation=(await api({action:'checkout-reserve',idempotencyKey:orderRequestId,previousReservationId,...inputs})).reservation;rememberCheckout({id:reservation.id,idempotencyKey:orderRequestId,signature});}if(['FAILED','EXPIRED'].includes(reservation.status))return resetExpiredCheckout();await mountCheckoutPayment(reservation);}catch(e){if(isExpiredCheckoutError(e))return resetExpiredCheckout(e.message);workspaceStatus(e.message,true);button.disabled=false;}finally{checkoutSubmitting=false;}};
 window.addEventListener('pageshow',event=>{
- if(event.persisted && location.hash==='#/checkout')render();
+ if(event.persisted && location.hash==='#/checkout' && document.getElementById('totalsCard') && checkoutFulfillment){
+  checkoutSubmitting=false;
+  document.getElementById('payBtn').hidden=false;
+  renderCheckoutTotals();
+ }
 });
 async function openLicense(id){try{const d=await api({action:'license',accountId:id});const a=document.createElement('a');a.href=d.url;a.target='_blank';a.rel='noopener noreferrer';a.click();}catch(e){workspaceStatus(e.message,true);}}
 renderShopDetails=function(){originalShopDetails();if(state.user){const el=document.createElement('p');el.style.marginTop='24px';el.innerHTML='<a class="link-accent" href="#/account/password">Change password</a>';app.append(el);}};
