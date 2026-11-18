@@ -43,17 +43,28 @@ Deno.serve(async req=>{
    return respond({...project(row.data,user),revision:row.revision,paymentConfigured:!!(Deno.env.get('WHOP_PAYMENTS_ENABLED')==='true'&&Deno.env.get('WHOP_COMPANY_API_KEY')&&Deno.env.get('WHOP_COMPANY_ID')&&Deno.env.get('WHOP_WEBHOOK_SECRET'))});
   }
   if(body.action==='quote'){const row=await rpc('ce_workspace_read');if(!row)throw new AppError('Workspace unavailable',503);const result=command(row.data,user,{...body,action:'order'});return respond({quote:result.result});}
+  function reservationView(r:any){
+   const hosted=r.status==='PROCESSING' && /^ch_[A-Za-z0-9]+$/.test(r.whop_payment_id);
+   return {id:r.id,status:r.status,amountCents:r.amount_cents,expiresAt:r.expires_at,orderId:r.confirmed_order_id||null,
+    resumeUrl:hosted?'https://whop.com/checkout/'+r.whop_payment_id+'/':null};
+  }
   if(body.action==='checkout-reserve'){
    if(Object.keys(body).some(k=>!['action','idempotencyKey','items','fulfillment','job','poNumber','notes','discountCode'].includes(k)))throw new AppError('Invalid checkout request');
    const row=await rpc('ce_workspace_read'),active=await rpc('ce_checkout_active');
    const args={idempotencyKey:body.idempotencyKey,items:body.items,fulfillment:body.fulfillment,job:body.job||{},poNumber:body.poNumber||'',notes:body.notes||'',discountCode:body.discountCode||''};
+   for(const held of active||[]){
+    if(held.user_id!==user!.id || !['READY','PROCESSING'].includes(held.status))continue;
+    if(await checkoutRequestHash({...args,idempotencyKey:held.id})!==held.request_hash)continue;
+    const current=command(row.data,user,{...args,action:'order'}).result;
+    if(current.totalCents===held.amount_cents)return respond({reservation:reservationView(held)});
+   }
    const reservation=await buildCheckoutReservation(row.data,user,args,active||[]);
    const saved=await rpc('ce_checkout_reserve',{rid:reservation.id,uid:user!.id,email:user!.email,body:reservation.quote,hash:reservation.requestHash,reference:reservation.paymentReference,amount:reservation.amountCents,expires:reservation.expiresAt});
    return respond({reservation:{id:saved.id,status:saved.status,amountCents:saved.amount_cents,expiresAt:saved.expires_at}});
   }
   if(body.action==='checkout-status'){
    if(Object.keys(body).some(k=>!['action','reservationId'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.reservationId||''))throw new AppError('Invalid checkout request');const r=await rpc('ce_checkout_read',{rid:body.reservationId});
-   if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);if(['READY','PROCESSING'].includes(r.status)&&new Date(r.expires_at)<=new Date()){await rpc('ce_checkout_transition',{rid:r.id,expected:r.status,next_state:'EXPIRED',payment_id:r.payment_id||null,failure:'Checkout expired'});r.status='EXPIRED';}return respond({reservation:{id:r.id,status:r.status,amountCents:r.amount_cents,expiresAt:r.expires_at,orderId:r.confirmed_order_id||null}});
+   if(!r||r.user_id!==user!.id)throw new AppError('Checkout not found',404);if(['READY','PROCESSING'].includes(r.status)&&new Date(r.expires_at)<=new Date()){await rpc('ce_checkout_transition',{rid:r.id,expected:r.status,next_state:'EXPIRED',payment_id:r.payment_id||null,failure:'Checkout expired'});r.status='EXPIRED';}return respond({reservation:reservationView(r)});
   }
   if(body.action==='checkout-hosted'){
    if(Object.keys(body).some(k=>!['action','reservationId'].includes(k))||!/^[0-9a-f-]{36}$/i.test(body.reservationId||''))throw new AppError('Invalid checkout request');
